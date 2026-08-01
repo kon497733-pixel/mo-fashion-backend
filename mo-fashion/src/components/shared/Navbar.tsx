@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingBag, User, Menu, X, Search } from 'lucide-react';
+import { ShoppingBag, User, Menu, X, Search, Home as HouseIcon, Layers, Sparkles } from 'lucide-react';
 import { useCartStore } from '../../store/useCartStore';
 
 export default function Navbar() {
@@ -166,7 +166,7 @@ export default function Navbar() {
     <header className="bg-secondary border-b border-primary/20 sticky top-0 z-50 shadow-md py-2">
       <div className="container mx-auto px-4 flex justify-between items-center gap-4">
         
-        {/* 🚀 লোগো এবং স্টোরের নাম (সরাসরি ক্লাউড ডাটাবেস থেকে সিঙ্ক করা লোগো) */}
+        {/* 🚀 লোগো এবং স্টোরের নাম */}
         <div className="flex items-center space-x-3 shrink-0">
           
           <Link to="/" className="flex items-center space-x-3 group shrink-0">
@@ -174,47 +174,50 @@ export default function Navbar() {
               <img 
                 src={siteSettings.logoUrl} 
                 alt="Logo" 
-                className="h-10 md:h-12 w-auto max-w-[140px] md:max-w-[180px] object-contain drop-shadow transition-transform group-hover:scale-105"
+                className="h-10 md:h-12 w-auto max-w-[140px] md:max-w-[180px] object-contain drop-shadow-[0_0_12px_rgba(212,175,55,0.4)] mix-blend-screen transition-transform group-hover:scale-105"
               />
             )}
-            <span className="text-2xl md:text-3xl font-serif font-bold text-primary tracking-widest">
+            <span className="text-2xl md:text-3xl font-serif font-bold text-primary tracking-widest drop-shadow">
               {siteSettings?.storeName || 'MO FASHION'}
             </span>
           </Link>
 
-          {/* নেভিগেশন লিংকসমূহ */}
+          {/* 🚀 নেভিগেশন লিংকসমূহ (হাউস আইকন এবং গ্লোয়িং বাটন সহ) */}
           <nav className="hidden lg:flex items-center space-x-3 pl-4 border-l border-primary/20">
             <Link 
               to="/" 
-              className={`transition-all duration-300 font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-lg ${
+              className={`transition-all duration-300 font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-lg flex items-center space-x-2 ${
                 isActivePath('/') && location.pathname === '/'
-                ? 'bg-[#D4AF37] text-black shadow-[0_0_15px_rgba(212,175,55,0.4)] border border-[#D4AF37]' 
-                : 'text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A]'
+                ? 'bg-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.6)] border border-[#D4AF37] scale-105' 
+                : 'text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A] hover:shadow-[0_0_10px_rgba(212,175,55,0.3)]'
               }`}
             >
-              Home
+              <HouseIcon size={16} className={isActivePath('/') && location.pathname === '/' ? 'drop-shadow-[0_0_5px_rgba(0,0,0,0.5)]' : 'text-[#D4AF37]'} />
+              <span>Home</span>
             </Link>
 
             <Link 
               to="/categories" 
-              className={`transition-all duration-300 font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-lg ${
+              className={`transition-all duration-300 font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-lg flex items-center space-x-2 ${
                 isActivePath('/categories') || isActivePath('/category')
-                ? 'bg-[#D4AF37] text-black shadow-[0_0_15px_rgba(212,175,55,0.4)] border border-[#D4AF37]' 
-                : 'text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A]'
+                ? 'bg-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.6)] border border-[#D4AF37] scale-105' 
+                : 'text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A] hover:shadow-[0_0_10px_rgba(212,175,55,0.3)]'
               }`}
             >
-              Categories
+              <Layers size={16} className={isActivePath('/categories') || isActivePath('/category') ? 'drop-shadow-[0_0_5px_rgba(0,0,0,0.5)]' : 'text-[#D4AF37]'} />
+              <span>Categories</span>
             </Link>
 
             <Link 
               to="/about" 
-              className={`transition-all duration-300 font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-lg ${
+              className={`transition-all duration-300 font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-lg flex items-center space-x-2 ${
                 isActivePath('/about')
-                ? 'bg-[#D4AF37] text-black shadow-[0_0_15px_rgba(212,175,55,0.4)] border border-[#D4AF37]' 
-                : 'text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A]'
+                ? 'bg-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.6)] border border-[#D4AF37] scale-105' 
+                : 'text-white hover:text-[#D4AF37] hover:bg-[#1A1A1A] hover:shadow-[0_0_10px_rgba(212,175,55,0.3)]'
               }`}
             >
-              About
+              <Sparkles size={16} className={isActivePath('/about') ? 'drop-shadow-[0_0_5px_rgba(0,0,0,0.5)]' : 'text-[#D4AF37]'} />
+              <span>About</span>
             </Link>
           </nav>
 
@@ -225,16 +228,16 @@ export default function Navbar() {
           <SearchBarComponent />
         </div>
 
-        {/* আইকন সমূহ */}
+        {/* 🚀 গ্লোয়িং আইকন সমূহ */}
         <div className="hidden md:flex items-center space-x-6 shrink-0">
-          <Link to="/cart" className="text-white hover:text-primary transition-colors relative">
-            <ShoppingBag size={24} />
-            <span className="absolute -top-2 -right-2 bg-primary text-secondary text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+          <Link to="/cart" className="text-white hover:text-[#D4AF37] transition-all relative group">
+            <ShoppingBag size={24} className="group-hover:drop-shadow-[0_0_10px_rgba(212,175,55,0.8)] transition-all" />
+            <span className="absolute -top-2 -right-2 bg-[#D4AF37] text-black text-xs font-black rounded-full w-5 h-5 flex items-center justify-center shadow-[0_0_10px_#D4AF37] animate-pulse">
               {cartCount}
             </span>
           </Link>
-          <Link to="/profile" className="text-white hover:text-primary transition-colors">
-            <User size={24} />
+          <Link to="/profile" className="text-white hover:text-[#D4AF37] transition-all group">
+            <User size={24} className="group-hover:drop-shadow-[0_0_10px_rgba(212,175,55,0.8)] transition-all" />
           </Link>
         </div>
 
@@ -258,37 +261,40 @@ export default function Navbar() {
             <Link 
               to="/" 
               onClick={() => setIsOpen(false)}
-              className={`font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg transition-all ${
+              className={`font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg transition-all flex items-center space-x-2 ${
                 isActivePath('/') && location.pathname === '/'
-                ? 'bg-[#D4AF37] text-black' 
+                ? 'bg-[#D4AF37] text-black shadow-[0_0_15px_rgba(212,175,55,0.4)]' 
                 : 'text-white hover:text-primary'
               }`}
             >
-              Home
+              <HouseIcon size={16} />
+              <span>Home</span>
             </Link>
 
             <Link 
               to="/categories" 
               onClick={() => setIsOpen(false)}
-              className={`font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg transition-all ${
+              className={`font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg transition-all flex items-center space-x-2 ${
                 isActivePath('/categories') || isActivePath('/category')
-                ? 'bg-[#D4AF37] text-black' 
+                ? 'bg-[#D4AF37] text-black shadow-[0_0_15px_rgba(212,175,55,0.4)]' 
                 : 'text-white hover:text-primary'
               }`}
             >
-              Categories
+              <Layers size={16} />
+              <span>Categories</span>
             </Link>
 
             <Link 
               to="/about" 
               onClick={() => setIsOpen(false)}
-              className={`font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg transition-all ${
+              className={`font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg transition-all flex items-center space-x-2 ${
                 isActivePath('/about')
-                ? 'bg-[#D4AF37] text-black' 
+                ? 'bg-[#D4AF37] text-black shadow-[0_0_15px_rgba(212,175,55,0.4)]' 
                 : 'text-white hover:text-primary'
               }`}
             >
-              About
+              <Sparkles size={16} />
+              <span>About</span>
             </Link>
 
             <div className="flex space-x-6 pt-4 border-t border-primary/10">

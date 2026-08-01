@@ -6,13 +6,11 @@ import {
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
 import { notifyProductChange } from '../../services/emailService'; 
+import { apiRequest, getLiveProducts } from '../../config/api';
 
 export default function Products() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadIndex, setUploadIndex] = useState<number | null>(null);
-
-  // 🚀 মঙ্গোডিবি ক্লাউড এপিআই লিঙ্ক
-  const API_URL = 'http://localhost:5000/api/products';
 
   // পুরনো ডামি প্রোডাক্ট অটোমেটিক মুছে ফেলার ফিল্টার
   const sanitizeProducts = (productList: any[]) => {
@@ -50,11 +48,11 @@ export default function Products() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   
-  // 🚀 ফর্মে variants এর জন্য নতুন স্টেট যুক্ত করা হলো
+  // 🚀 ফর্মে variants এর জন্য স্টেট
   const [formData, setFormData] = useState({
     _id: '', id: '', name: '', description: '', category: '',
     price: '', discount: '0', stock: '', status: 'Active', images: [''],
-    variants: [] as { name: string, options: string }[] // ডাইনামিক অপশন বক্স
+    variants: [] as { name: string, options: string }[]
   });
 
   // ক্লাউড ডাটাবেস থেকে রিয়েল-টাইম প্রোডাক্ট ফেচ
@@ -64,20 +62,16 @@ export default function Products() {
       try {
         const cleanLocal = sanitizeProducts(JSON.parse(savedLocal));
         setProducts(cleanLocal);
-        localStorage.setItem('mo_fashion_products', JSON.stringify(cleanLocal));
       } catch (e) {}
     }
 
     try {
       setLoading(true);
-      const response = await fetch(API_URL);
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          const cleanCloud = sanitizeProducts(data);
-          setProducts(cleanCloud);
-          localStorage.setItem('mo_fashion_products', JSON.stringify(cleanCloud));
-        }
+      const data = await getLiveProducts();
+      if (Array.isArray(data)) {
+        const cleanCloud = sanitizeProducts(data);
+        setProducts(cleanCloud);
+        localStorage.setItem('mo_fashion_products', JSON.stringify(cleanCloud));
       }
     } catch (error) {
       console.warn("Backend API offline, using cleaned local products.");
@@ -99,7 +93,7 @@ export default function Products() {
       _id: newId, id: newId, name: '', description: '', 
       category: categories.length > 0 ? categories[0].name : "Men's Collection", 
       price: '', discount: '0', stock: '10', status: 'Active', images: [''],
-      variants: [] // 🚀 নতুন প্রোডাক্টে কোনো ডিফল্ট অপশন থাকবে না
+      variants: []
     });
     setIsModalOpen(true);
   };
@@ -126,7 +120,7 @@ export default function Products() {
       stock: product.stock !== undefined ? product.stock.toString() : '0',
       status: product.status || 'Active',
       images: product.images && product.images.length > 0 ? [...product.images] : (product.imageUrl ? [product.imageUrl] : ['']),
-      variants: loadedVariants // ভ্যারিয়েন্টস লোড করা হলো
+      variants: loadedVariants
     });
     setIsModalOpen(true);
   };
@@ -196,7 +190,7 @@ export default function Products() {
       toast.success("Product deleted!");
 
       try {
-        await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+        await apiRequest(`/products/${id}`, { method: 'DELETE' });
         try { await notifyProductChange('Deleted', name); } catch(e){}
       } catch (e) {
         console.warn("Cloud delete failed. Deleted locally.");
@@ -238,7 +232,7 @@ export default function Products() {
       category: formData.category || (categories.length > 0 ? categories[0].name : "Men's Collection"),
       images: validImages.length > 0 ? validImages : ['https://via.placeholder.com/600x600?text=No+Image'],
       imageUrl: validImages.length > 0 ? validImages[0] : '',
-      variants: formattedVariants, // 🚀 ডাইনামিক ভ্যারিয়েন্ট ডাটাবেসের জন্য রেডি
+      variants: formattedVariants,
       colors: colorVar ? colorVar.options : [], 
       sizes: sizeVar ? sizeVar.options : []     
     };
@@ -262,31 +256,24 @@ export default function Products() {
     const toastId = toast.loading("Saving product to Cloud Database...");
 
     try {
-      let response;
       if (modalMode === 'add') {
-        response = await fetch(API_URL, {
+        await apiRequest('/products', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(productPayload)
         });
       } else {
-        response = await fetch(`${API_URL}/${targetId}`, {
+        await apiRequest(`/products/${targetId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(productPayload)
         });
       }
 
-      if (response.ok) {
-        toast.success("Product saved LIVE on Cloud!", { id: toastId });
-        try { await notifyProductChange(modalMode === 'add' ? 'Added' : 'Updated', productPayload.name); } catch(e){}
-        fetchProducts(); 
-      } else {
-        toast.success("Product saved successfully!", { id: toastId });
-      }
+      toast.success("Product saved LIVE on Cloud!", { id: toastId });
+      try { await notifyProductChange(modalMode === 'add' ? 'Added' : 'Updated', productPayload.name); } catch(e){}
+      fetchProducts(); 
     } catch (error) {
       console.warn("Cloud Sync warning:", error);
-      toast.success("Product saved locally!", { id: toastId });
+      toast.success("Product saved successfully!", { id: toastId });
     } finally {
       setIsSaving(false);
     }
@@ -366,8 +353,6 @@ export default function Products() {
                   }
 
                   const displayImage = p.images && p.images.length > 0 ? p.images[0] : (p.imageUrl || '');
-                  
-                  // 🚀 টেবিলে অপশন কাউন্ট
                   const variantCount = p.variants ? p.variants.length : ((p.colors?.length > 0 ? 1 : 0) + (p.sizes?.length > 0 ? 1 : 0));
 
                   return (

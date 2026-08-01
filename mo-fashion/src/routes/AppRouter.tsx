@@ -24,7 +24,8 @@ import Customers from '../pages/admin/Customers';
 import Coupons from '../pages/admin/Coupons';
 import Settings from '../pages/admin/Settings';
 import CategoryManagement from '../pages/admin/CategoryManagement';
-import RecycleBin from '../pages/admin/RecycleBin'; // 🚀 রিসাইকেল বিন পেজ ইমপোর্ট করা হলো
+import RecycleBin from '../pages/admin/RecycleBin';
+import Security from '../pages/admin/Security'; // 🚀 নতুন সিকিউরিটি পেজ ইমপোর্ট করা হলো
 
 export default function AppRouter() {
   return (
@@ -56,10 +57,9 @@ export default function AppRouter() {
         <Route path="orders" element={<Orders />} />
         <Route path="customers" element={<Customers />} />
         <Route path="coupons" element={<Coupons />} />
+        <Route path="security" element={<Security />} /> {/* 🚀 নতুন সিকিউরিটি রাউট */}
         <Route path="settings" element={<Settings />} />
         <Route path="category-management" element={<CategoryManagement />} />
-        
-        {/* 🚀 নতুন রিসাইকেল বিন রাউট */}
         <Route path="recycle-bin" element={<RecycleBin />} />
       </Route>
     </Routes>

@@ -4,13 +4,10 @@ import { Link } from 'react-router-dom';
 import { ShoppingBag, Image as ImageIcon, Search, Tag, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCartStore } from '../../store/useCartStore';
+import { getLiveProducts, getLiveSettings } from '../../config/api';
 
 export default function Home() {
   const addToCart = useCartStore((state) => state.addToCart);
-
-  // 🚀 মঙ্গোডিবি ক্লাউড এপিআই লিঙ্ক
-  const API_URL = 'http://localhost:5000/api/products';
-  const SETTINGS_API_URL = 'http://localhost:5000/api/settings';
 
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [displayProducts, setDisplayProducts] = useState<any[]>([]);
@@ -34,7 +31,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // 🚀 ১. সরাসরি ক্লাউড ডাটাবেস (MongoDB API) থেকে রিয়েল-টাইম প্রোডাক্ট ও সেটিংস ফেচ করা
+  // 🚀 ১. সরাসরি ক্লাউড ডাটাবেস (MongoDB API) থেকে সেন্ট্রাল এপিআই দিয়ে রিয়েল-টাইম প্রোডাক্ট ও সেটিংস ফেচ করা
   const fetchLiveHomeData = async (isSilent = false) => {
     if (!isSilent) {
       const savedProducts = localStorage.getItem('mo_fashion_products');
@@ -56,26 +53,20 @@ export default function Home() {
 
     try {
       if (!isSilent) setLoading(true);
-      const [prodRes, settingsRes] = await Promise.all([
-        fetch(API_URL).catch(() => null),
-        fetch(SETTINGS_API_URL).catch(() => null)
+      const [data, settingsData] = await Promise.all([
+        getLiveProducts(),
+        getLiveSettings()
       ]);
 
-      if (prodRes && prodRes.ok) {
-        const data = await prodRes.json();
-        if (Array.isArray(data)) {
-          setAllProducts(data);
-          setDisplayProducts(data);
-          localStorage.setItem('mo_fashion_products', JSON.stringify(data));
-        }
+      if (Array.isArray(data)) {
+        setAllProducts(data);
+        setDisplayProducts(data);
+        localStorage.setItem('mo_fashion_products', JSON.stringify(data));
       }
 
-      if (settingsRes && settingsRes.ok) {
-        const settingsData = await settingsRes.json();
-        if (settingsData) {
-          setSiteSettings(settingsData);
-          localStorage.setItem('mo_fashion_settings', JSON.stringify(settingsData));
-        }
+      if (settingsData) {
+        setSiteSettings(settingsData);
+        localStorage.setItem('mo_fashion_settings', JSON.stringify(settingsData));
       }
     } catch (error) {
       console.warn("Backend API offline, using cached home data.");
