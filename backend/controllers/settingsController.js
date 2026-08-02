@@ -12,17 +12,14 @@ try {
   }
 }
 
-// ১. গ্লোবাল সেটিংস ডাটাবেস থেকে নিয়ে আসার ফাংশন (Get Settings)
+// ১. গ্লোবাল সেটিংস ডাটাবেস থেকে নিয়ে আসার ফাংশন (Get Settings - Zero Default Data)
 const getSettings = async (req, res) => {
   try {
     let settings = await Settings.findOne({});
     
-    // ডাটাবেসে আগে থেকে কোনো সেটিংস না থাকলে প্রথমবার অটোমেটিক তৈরি করবে
+    // ডাটাবেসে না থাকলে ফাঁকা সেটিং অবজেক্ট তৈরি করবে (কোনো ডামি ডাটা ছাড়া)
     if (!settings) {
-      settings = await Settings.create({
-        storeName: 'MO FASHION',
-        tagline: 'Premium E-Commerce Experience'
-      });
+      settings = await Settings.create({});
     }
     
     res.status(200).json(settings);
@@ -32,21 +29,27 @@ const getSettings = async (req, res) => {
   }
 };
 
-// ২. গ্লোবাল সেটিংস আপডেট/সেভ করার ফাংশন (Update/Save Settings - 100% Live Cloud Sync)
+// ২. গ্লোবাল সেটিংস আপডেট/সেভ করার ফাংশন (Single Target Document Permanent Save)
 const updateSettings = async (req, res) => {
   try {
     if (!req.body || Object.keys(req.body).length === 0) {
       return res.status(400).json({ message: 'No settings data provided in request body' });
     }
 
-    // ডাটাবেসে থাকলে আপডেট করবে, না থাকলে নতুন সেভ করবে (upsert: true)
-    const updatedSettings = await Settings.findOneAndUpdate(
-      {}, 
-      req.body, 
-      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
-    );
+    // ডাটাবেসের যে ১টি ডকুমেন্ট রিফ্রেশে লোড হয়—ঠিক সেই ১টি নির্দিষ্ট ডকুমেন্টের ওপর টার্গেটেড সেভ
+    let settings = await Settings.findOne({});
     
-    res.status(200).json(updatedSettings);
+    if (settings) {
+      settings = await Settings.findByIdAndUpdate(
+        settings._id, 
+        { $set: req.body }, 
+        { new: true, runValidators: false }
+      );
+    } else {
+      settings = await Settings.create(req.body);
+    }
+    
+    res.status(200).json(settings);
   } catch (error) {
     console.error('Error updating settings:', error);
     res.status(400).json({ message: 'Error updating settings', error: error.message });
