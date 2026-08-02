@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Plus, Edit, Trash2, X, Image as ImageIcon, Folder, Upload, Eye, Package, CheckCircle, XCircle, Tag } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
+import { getLiveCategories, getLiveProducts, apiRequest } from '../../config/api';
 
 export default function CategoryManagement() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -26,28 +27,18 @@ export default function CategoryManagement() {
     images: ['']
   });
 
-  // ১. ডাটাবেজ (MongoDB API) ও লোকাল স্টোরেজ থেকে ক্যাটাগরি ও প্রোডাক্ট ফেচ করা
+  // ১. সেন্ট্রাল এপিআই দিয়ে ডাটাবেজ (MongoDB API) থেকে ক্যাটাগরি ও প্রোডাক্ট ফেচ করা
   const fetchCategoriesAndProducts = async () => {
     try {
       setLoading(true);
-      const [catRes, prodRes] = await Promise.all([
-        fetch('http://localhost:5000/api/categories').catch(() => null),
-        fetch('http://localhost:5000/api/products').catch(() => null)
+      const [catData, prodData] = await Promise.all([
+        getLiveCategories().catch(() => null),
+        getLiveProducts().catch(() => null)
       ]);
 
-      if (catRes && catRes.ok) {
-        const catData = await catRes.json();
-        if (Array.isArray(catData)) setCategories(catData);
-      }
-
-      if (prodRes && prodRes.ok) {
-        const prodData = await prodRes.json();
-        if (Array.isArray(prodData)) {
-          setProducts(prodData);
-        } else {
-          const localProds = JSON.parse(localStorage.getItem('mo_fashion_products') || '[]');
-          setProducts(localProds);
-        }
+      if (Array.isArray(catData)) setCategories(catData);
+      if (Array.isArray(prodData)) {
+        setProducts(prodData);
       } else {
         const localProds = JSON.parse(localStorage.getItem('mo_fashion_products') || '[]');
         setProducts(localProds);
@@ -106,7 +97,7 @@ export default function CategoryManagement() {
   const handleOpenEdit = (category: any) => {
     setModalMode('edit');
     setFormData({
-      _id: category._id || '',
+      _id: category._id || category.id || '',
       name: category.name || '',
       description: category.description || '',
       images: category.images && category.images.length > 0 ? [...category.images] : ['']
@@ -114,22 +105,15 @@ export default function CategoryManagement() {
     setIsModalOpen(true);
   };
 
-  // ৩. ডাটাবেস থেকে ডিলিট করার API কল
+  // ৩. সেন্ট্রাল এপিআই দিয়ে ডাটাবেস থেকে ক্যাটাগরি ডিলিট করা
   const handleDelete = async (id: string, name: string) => {
     if (window.confirm(`Are you sure you want to delete category "${name}"?`)) {
       try {
-        const response = await fetch(`http://localhost:5000/api/categories/${id}`, {
-          method: 'DELETE'
-        });
-        
-        if (response.ok) {
-          setCategories(categories.filter(c => c._id !== id));
-          toast.success("Category deleted completely from database!");
-        } else {
-          toast.error("Failed to delete from database.");
-        }
+        await apiRequest(`/categories/${id}`, { method: 'DELETE' });
+        setCategories(categories.filter(c => (c._id || c.id) !== id));
+        toast.success("Category deleted completely from database!");
       } catch (e) {
-        toast.error("Server connection error.");
+        toast.error("Failed to delete category.");
       }
     }
   };
@@ -147,7 +131,7 @@ export default function CategoryManagement() {
     setFormData({ ...formData, images: updatedImages });
   };
 
-  // ৪. ডাটাবেসে সেভ করার API (POST/PUT)
+  // ৪. সেন্ট্রাল এপিআই দিয়ে ডাটাবেসে ক্যাটাগরি সেভ করা (POST/PUT)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
@@ -165,28 +149,21 @@ export default function CategoryManagement() {
     const toastId = toast.loading("Saving category to Database...");
 
     try {
-      let response;
       if (modalMode === 'add') {
-        response = await fetch('http://localhost:5000/api/categories', {
+        await apiRequest('/categories', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(catData)
         });
       } else {
-        response = await fetch(`http://localhost:5000/api/categories/${formData._id}`, {
+        await apiRequest(`/categories/${formData._id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(catData)
         });
       }
 
-      if (response.ok) {
-        toast.success(`Category ${modalMode === 'add' ? 'added' : 'updated'} successfully!`, { id: toastId });
-        fetchCategoriesAndProducts(); 
-        setIsModalOpen(false);
-      } else {
-        toast.error("Failed to save category.", { id: toastId });
-      }
+      toast.success(`Category ${modalMode === 'add' ? 'added' : 'updated'} successfully!`, { id: toastId });
+      fetchCategoriesAndProducts(); 
+      setIsModalOpen(false);
     } catch (e: any) {
       toast.error("Server connection failed! Make sure backend is running.", { id: toastId });
     }
@@ -219,7 +196,7 @@ export default function CategoryManagement() {
               );
 
               return (
-                <div key={cat._id} className="bg-[#111111] p-4 rounded-xl border border-gray-800 space-y-3 shadow-md flex flex-col justify-between">
+                <div key={cat._id || cat.id} className="bg-[#111111] p-4 rounded-xl border border-gray-800 space-y-3 shadow-md flex flex-col justify-between">
                   <div className="space-y-3">
                     <div className="h-44 bg-[#1A1A1A] rounded-lg overflow-hidden relative border border-gray-800">
                       {cat.images && cat.images[0] ? (
@@ -252,7 +229,7 @@ export default function CategoryManagement() {
                       <Eye size={16} />
                     </button>
                     <button onClick={() => handleOpenEdit(cat)} className="p-2 text-gray-400 hover:text-[#D4AF37] bg-[#1A1A1A] border border-gray-800 rounded-md transition-colors"><Edit size={16} /></button>
-                    <button onClick={() => handleDelete(cat._id, cat.name)} className="p-2 text-gray-400 hover:text-red-500 bg-[#1A1A1A] border border-gray-800 rounded-md transition-colors"><Trash2 size={16} /></button>
+                    <button onClick={() => handleDelete(cat._id || cat.id, cat.name)} className="p-2 text-gray-400 hover:text-red-500 bg-[#1A1A1A] border border-gray-800 rounded-md transition-colors"><Trash2 size={16} /></button>
                   </div>
                 </div>
               );
@@ -293,7 +270,6 @@ export default function CategoryManagement() {
                     const soldVal = Number(p.sold) || 0;
                     const origPrice = Number(p.price) || 0;
                     const discPercent = Number(p.discount) || 0;
-                    // 🚀 ডিসকাউন্টের পর আসল বিক্রয়মূল্য হিসাব
                     const sellingPrice = discPercent > 0 ? origPrice - (origPrice * discPercent / 100) : origPrice;
                     const isOutOfStock = stockVal <= 0 || p.status === 'Out of Stock';
 
@@ -308,7 +284,6 @@ export default function CategoryManagement() {
                             )}
                           </div>
                           <div>
-                            {/* 🚀 প্রোডাক্টের নাম এবং ডিসকাউন্ট ব্যাজ */}
                             <div className="flex items-center space-x-2">
                               <h4 className="font-bold text-white text-sm line-clamp-1">{p.name}</h4>
                               {discPercent > 0 && (
@@ -319,7 +294,6 @@ export default function CategoryManagement() {
                               )}
                             </div>
 
-                            {/* 🚀 অরিজিনাল প্রাইস এবং ডিসকাউন্টেড প্রাইস */}
                             <div className="flex items-center space-x-2 mt-1">
                               <span className="text-xs text-[#D4AF37] font-bold">
                                 Price: ৳{sellingPrice.toFixed(2)}
@@ -334,12 +308,10 @@ export default function CategoryManagement() {
                         </div>
 
                         <div className="flex items-center space-x-3 text-xs w-full sm:w-auto justify-between sm:justify-end">
-                          {/* সোল্ড সংখ্যা */}
                           <div className="bg-[#1A1A1A] px-3 py-1.5 rounded-lg border border-gray-800 text-gray-300">
                             Sold: <span className="text-[#D4AF37] font-bold">{soldVal}</span>
                           </div>
 
-                          {/* স্টক স্ট্যাটাস ও বাকি থাকা সংখ্যা */}
                           <div className="bg-[#1A1A1A] px-3 py-1.5 rounded-lg border border-gray-800">
                             {isOutOfStock ? (
                               <span className="text-red-400 font-bold flex items-center"><XCircle size={12} className="mr-1"/> Out of Stock</span>
@@ -363,7 +335,7 @@ export default function CategoryManagement() {
         </div>
       )}
 
-      {/* Add / Edit Modal (অক্ষত রাখা হয়েছে) */}
+      {/* Add / Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
           <div className="bg-[#1A1A1A] border border-[#D4AF37]/30 rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl flex flex-col max-h-[90vh]">

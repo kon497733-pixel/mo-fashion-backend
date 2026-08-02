@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, X, Ticket, Copy, RefreshCw } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
+import { getLiveCoupons, apiRequest } from '../../config/api';
 
 export default function Coupons() {
   const [coupons, setCoupons] = useState<any[]>(() => {
@@ -24,7 +25,7 @@ export default function Coupons() {
     status: 'Active'
   });
 
-  // 🚀 ১. ক্লাউড ডাটাবেজ (MongoDB API) থেকে রিয়েল-টাইম কুপন ডাটা ফেচ করা
+  // 🚀 ১. সেন্ট্রাল এপিআই দিয়ে ক্লাউড ডাটাবেজ (MongoDB API) থেকে রিয়েল-টাইম কুপন ডাটা ফেচ করা
   const fetchCoupons = async () => {
     // লোকালস্টোরেজ থেকে ইনস্ট্যান্ট লোড
     const savedLocal = localStorage.getItem('mo_fashion_coupons');
@@ -36,18 +37,15 @@ export default function Coupons() {
 
     // ক্লাউড ডাটাবেস থেকে রিয়েল-টাইম সিঙ্ক
     try {
-      const response = await fetch('http://localhost:5000/api/coupons');
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          const formatted = data.map(item => ({
-            id: item._id || item.id,
-            _id: item._id || item.id,
-            ...item
-          }));
-          setCoupons(formatted);
-          localStorage.setItem('mo_fashion_coupons', JSON.stringify(formatted));
-        }
+      const data = await getLiveCoupons();
+      if (Array.isArray(data)) {
+        const formatted = data.map(item => ({
+          id: item._id || item.id,
+          _id: item._id || item.id,
+          ...item
+        }));
+        setCoupons(formatted);
+        localStorage.setItem('mo_fashion_coupons', JSON.stringify(formatted));
       }
     } catch (error) {
       console.warn("Backend API offline, using cached coupons.");
@@ -101,7 +99,7 @@ export default function Coupons() {
     setIsModalOpen(true);
   };
 
-  // 🚀 ২. ক্লাউড ডাটাবেস থেকে কুপন ডিলিট করা
+  // 🚀 ২. সেন্ট্রাল এপিআই দিয়ে ক্লাউড ডাটাবেস থেকে কুপন ডিলিট করা
   const handleDelete = async (id: string, code: string) => {
     if (window.confirm(`Are you sure you want to delete the coupon "${code}"?`)) {
       const updated = coupons.filter(c => (c._id || c.id) !== id);
@@ -110,9 +108,7 @@ export default function Coupons() {
       toast.success(`Coupon ${code} deleted!`);
 
       try {
-        await fetch(`http://localhost:5000/api/coupons/${id}`, {
-          method: 'DELETE'
-        });
+        await apiRequest(`/coupons/${id}`, { method: 'DELETE' });
       } catch (e) {
         console.warn("Cloud delete failed.");
       }
@@ -124,7 +120,7 @@ export default function Coupons() {
     toast.success(`Coupon code ${code} copied to clipboard!`);
   };
 
-  // 🚀 ৩. ক্লাউড ডাটাবেসে সেভ বা আপডেট করার লজিক (POST / PUT API)
+  // 🚀 ৩. সেন্ট্রাল এপিআই দিয়ে ক্লাউড ডাটাবেসে সেভ বা আপডেট করার লজিক (POST / PUT API)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -172,27 +168,20 @@ export default function Coupons() {
 
     // ২. ক্লাউড ডাটাবেসে (MongoDB API) সেভ করা
     try {
-      let response;
       if (modalMode === 'add') {
-        response = await fetch('http://localhost:5000/api/coupons', {
+        await apiRequest('/coupons', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(couponPayload)
         });
       } else {
-        response = await fetch(`http://localhost:5000/api/coupons/${targetId}`, {
+        await apiRequest(`/coupons/${targetId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(couponPayload)
         });
       }
 
-      if (response.ok) {
-        toast.success("Coupon saved LIVE on Cloud!", { id: toastId });
-        fetchCoupons(); // রিরিলোড
-      } else {
-        toast.success("Coupon saved successfully!", { id: toastId });
-      }
+      toast.success("Coupon saved LIVE on Cloud!", { id: toastId });
+      fetchCoupons(); // রিরিলোড
     } catch (error) {
       console.warn("Cloud Sync warning:", error);
       toast.success("Coupon saved locally!", { id: toastId });

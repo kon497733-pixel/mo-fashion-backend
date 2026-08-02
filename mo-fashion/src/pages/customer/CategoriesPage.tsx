@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Layers, ShoppingBag, Search } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { getLiveCategories, getLiveProducts } from '../../config/api';
 
 export default function CategoriesPage() {
   const { settings } = useSettingsStore();
@@ -26,15 +27,11 @@ export default function CategoriesPage() {
       try {
         setLoading(true);
 
-        // ১. ডাটাবেস থেকে ক্যাটাগরি ফেচ
-        const catRes = await fetch('http://localhost:5000/api/categories');
-        let fetchedCategories = [];
-        if (catRes.ok) fetchedCategories = await catRes.json();
-
-        // ২. ডাটাবেস থেকে প্রোডাক্ট ফেচ (সঠিক কাউন্টের জন্য)
-        const prodRes = await fetch('http://localhost:5000/api/products');
-        let fetchedProducts = [];
-        if (prodRes.ok) fetchedProducts = await prodRes.json();
+        // ১. সেন্ট্রাল এপিআই দিয়ে ডাটাবেস থেকে রিয়েল-টাইম ক্যাটাগরি ও প্রোডাক্ট ফেচ
+        const [fetchedCategories, fetchedProducts] = await Promise.all([
+          getLiveCategories().catch(() => []),
+          getLiveProducts().catch(() => [])
+        ]);
 
         if (Array.isArray(fetchedCategories)) {
           const enrichedCategories = fetchedCategories.map((cat: any) => {

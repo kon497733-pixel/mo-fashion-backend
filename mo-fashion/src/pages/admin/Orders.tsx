@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, X, Package, Clock, CheckCircle, Truck, MapPin, Trash2, Tag } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
+import { getLiveOrders, apiRequest } from '../../config/api';
 
 export default function Orders() {
   const [orders, setOrders] = useState<any[]>(() => {
@@ -14,7 +15,7 @@ export default function Orders() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // 🚀 ১. ক্লাউড ডাটাবেজ (MongoDB API) থেকে রিয়েল-টাইম সব অর্ডার ফেচ করা
+  // 🚀 ১. সেন্ট্রাল এপিআই দিয়ে ক্লাউড ডাটাবেজ (MongoDB API) থেকে রিয়েল-টাইম সব অর্ডার ফেচ করা
   const fetchOrders = async () => {
     // ১. লোকালস্টোরেজ থেকে ইনস্ট্যান্ট লোড
     const savedLocal = localStorage.getItem('mo_fashion_orders');
@@ -27,13 +28,10 @@ export default function Orders() {
     // ২. ক্লাউড ডাটাবেস থেকে রিয়েল-টাইম সিঙ্ক
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/orders');
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setOrders(data);
-          localStorage.setItem('mo_fashion_orders', JSON.stringify(data));
-        }
+      const data = await getLiveOrders();
+      if (Array.isArray(data)) {
+        setOrders(data);
+        localStorage.setItem('mo_fashion_orders', JSON.stringify(data));
       }
     } catch (error) {
       console.warn("Backend API offline, using cached local orders.");
@@ -51,7 +49,7 @@ export default function Orders() {
     setIsModalOpen(true);
   };
 
-  // 🚀 ২. ক্লাউড ডাটাবেসে অর্ডারের স্ট্যাটাস আপডেট করার API (PUT)
+  // 🚀 ২. সেন্ট্রাল এপিআই দিয়ে ক্লাউড ডাটাবেসে অর্ডারের স্ট্যাটাস আপডেট করা (PUT)
   const handleUpdateStatus = async (newStatus: string) => {
     const orderId = selectedOrder._id || selectedOrder.id;
 
@@ -66,9 +64,8 @@ export default function Orders() {
 
     // ২. ক্লাউড ডাটাবেস আপডেট
     try {
-      await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+      await apiRequest(`/orders/${orderId}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
     } catch (error) {
@@ -76,7 +73,7 @@ export default function Orders() {
     }
   };
 
-  // 🚀 ৩. ক্লাউড ডাটাবেস থেকে অর্ডার ডিলিট করার API (DELETE)
+  // 🚀 ৩. সেন্ট্রাল এপিআই দিয়ে ক্লাউড ডাটাবেস থেকে অর্ডার ডিলিট করা (DELETE)
   const handleDeleteOrder = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this order completely? This action cannot be undone.")) {
       // ১. লোকাল ইনস্ট্যান্ট ডিলিট
@@ -88,7 +85,7 @@ export default function Orders() {
 
       // ২. ক্লাউড ডাটাবেস থেকে ডিলিট
       try {
-        await fetch(`http://localhost:5000/api/orders/${id}`, {
+        await apiRequest(`/orders/${id}`, {
           method: 'DELETE',
         });
       } catch (error) {

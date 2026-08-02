@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
-  ShoppingBag, Star, Truck, ShieldCheck, ChevronLeft, Minus, Plus, 
-  MapPin, Banknote, RotateCcw, Share2, Heart, 
-  X, ZoomIn, ZoomOut, Maximize2, Tag
+  ShoppingBag, Star, Truck, ChevronLeft, Minus, Plus, 
+  MapPin, RotateCcw, Share2, Heart, 
+  X, ZoomIn, ZoomOut, Maximize2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCartStore } from '../../store/useCartStore';
+import { getLiveSettings, apiRequest } from '../../config/api';
 
 export default function ProductDetailsPage() {
   const { id } = useParams();
@@ -81,21 +82,17 @@ export default function ProductDetailsPage() {
       }
 
       try {
-        const [prodRes, settingsRes] = await Promise.all([
-          fetch(`http://localhost:5000/api/products/${id}`).catch(() => null),
-          fetch(`http://localhost:5000/api/settings`).catch(() => null)
+        const [cloudProduct, cloudSettings] = await Promise.all([
+          apiRequest(`/products/${id}`).catch(() => null),
+          getLiveSettings().catch(() => null)
         ]);
 
-        if (prodRes && prodRes.ok) {
-          const cloudProduct = await prodRes.json();
-          if (cloudProduct && !cloudProduct.message) {
-            initializeProduct(cloudProduct);
-          }
+        if (cloudProduct && !cloudProduct.message) {
+          initializeProduct(cloudProduct);
         }
 
-        if (settingsRes && settingsRes.ok) {
-          const cloudSettings = await settingsRes.json();
-          if (cloudSettings) setSiteSettings(cloudSettings);
+        if (cloudSettings) {
+          setSiteSettings(cloudSettings);
         }
       } catch (e) {
         console.warn("Backend API offline, using local cached data.");
@@ -233,7 +230,6 @@ export default function ProductDetailsPage() {
   const currentPrice = discountPercent > 0 ? originalPrice - (originalPrice * discountPercent / 100) : originalPrice;
   const stockVal = Number(product.stock) || 0;
   
-  // 🚀 ডাটাবেসের অরিজিনাল রিয়েল ডাটা (কোনো ফেইক ডামি ভ্যালু নেই)
   const realSoldCount = product.sold || 0;
   const realReviewCount = product.reviews || 0;
   const realRatingValue = product.rating || 0;
@@ -306,12 +302,10 @@ export default function ProductDetailsPage() {
 
             <div className="flex items-center space-x-3 mb-4 pb-4 border-b border-gray-800 flex-wrap gap-y-2">
               <div className="flex text-[#D4AF37]">
-                {/* 🚀 রিয়েল রেটিং অনুযায়ী স্টার শো করবে */}
                 {[...Array(5)].map((_, i) => (
                   <Star key={i} size={16} fill={i < Math.round(realRatingValue) ? "currentColor" : "none"} />
                 ))}
               </div>
-              {/* 🚀 রিয়েল রিভিউ ও সোল্ড ডাটা */}
               <span className="text-blue-400 text-sm hover:underline cursor-pointer">
                 {realReviewCount} Ratings
               </span>
@@ -348,7 +342,7 @@ export default function ProductDetailsPage() {
               )}
             </div>
 
-            {/* Dynamic Variants Render (Color, Size, Material, etc.) */}
+            {/* Dynamic Variants Render */}
             {displayVariants.map((variant: any, index: number) => (
               <div key={index} className="mb-6">
                 <h3 className="text-gray-400 mb-2 text-sm">

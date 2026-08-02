@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { Helmet } from 'react-helmet-async';
 
 import { useCartStore } from '../../store/useCartStore';
+import { getLiveProducts, getLiveSettings, apiRequest } from '../../config/api'; // 🚀 সেন্ট্রাল এপিআই ইমপোর্ট
 
 // 🚀 বাংলাদেশের ৬৪ জেলার তালিকা
 const bdDistricts = [
@@ -52,19 +53,18 @@ export default function CheckoutPage() {
       if (savedSettings) setSafeSettings(JSON.parse(savedSettings));
 
       try {
-        const [prodRes, settingsRes] = await Promise.all([
-          fetch('http://localhost:5000/api/products').catch(() => null),
-          fetch('http://localhost:5000/api/settings').catch(() => null)
+        // 🚀 ২. সেন্ট্রাল এপিআই থেকে লাইভ ডাটা ফেচ
+        const [cloudProds, cloudSet] = await Promise.all([
+          getLiveProducts().catch(() => null),
+          getLiveSettings().catch(() => null)
         ]);
 
-        if (prodRes && prodRes.ok) {
-          const cloudProds = await prodRes.json();
-          if (Array.isArray(cloudProds)) setDbProducts(cloudProds);
+        if (Array.isArray(cloudProds)) {
+          setDbProducts(cloudProds);
         }
 
-        if (settingsRes && settingsRes.ok) {
-          const cloudSet = await settingsRes.json();
-          if (cloudSet) setSafeSettings(cloudSet);
+        if (cloudSet) {
+          setSafeSettings(cloudSet);
         }
       } catch (e) {
         console.warn("Backend API offline, using cached settings.");
@@ -253,7 +253,7 @@ export default function CheckoutPage() {
     };
 
     try {
-      // 🚀 ১. কেনা প্রোডাক্টগুলোর স্টক কমানো এবং Sold সংখ্যা বাড়ানো
+      // 🚀 ১. কেনা প্রোডাক্টগুলোর স্টক কমানো এবং Sold সংখ্যা লাইভ ডাটাবেসে বাড়ানো
       const savedProducts = JSON.parse(localStorage.getItem('mo_fashion_products') || '[]');
       const updatedProducts = savedProducts.map((p: any) => {
         const orderedItem = items.find((i: any) => String(i.id) === String(p._id || p.id));
@@ -263,9 +263,9 @@ export default function CheckoutPage() {
           const newStock = Math.max(0, currentStock - orderedItem.quantity);
           const newSold = currentSold + orderedItem.quantity;
           
-          fetch(`http://localhost:5000/api/products/${p._id || p.id}`, {
+          // সেন্ট্রাল এপিআই দিয়ে লাইভ স্টক আপডেট
+          apiRequest(`/products/${p._id || p.id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ stock: newStock, sold: newSold })
           }).catch(() => null);
 
@@ -280,13 +280,20 @@ export default function CheckoutPage() {
       });
       localStorage.setItem('mo_fashion_products', JSON.stringify(updatedProducts));
 
-      // 🚀 ২. কুপন ইউজ লিমিট কমানো
+      // 🚀 ২. কুপন ইউজ লিমিট কমানো এবং লাইভ ডাটাবেসে সিঙ্ক
       if (appliedCoupon) {
         const allCoupons = JSON.parse(localStorage.getItem('mo_fashion_coupons') || '[]');
         const updatedCoupons = allCoupons.map((c: any) => {
           if (c.code === appliedCoupon.code) {
             const newUsedCount = (Number(c.used) || 0) + 1;
             const newStatus = (c.usageLimit && newUsedCount >= c.usageLimit) ? 'Expired' : c.status;
+            
+            // সেন্ট্রাল এপিআই দিয়ে লাইভ কুপন আপডেট
+            apiRequest(`/coupons/${c._id || c.id}`, {
+              method: 'PUT',
+              body: JSON.stringify({ used: newUsedCount, status: newStatus })
+            }).catch(() => null);
+
             return { ...c, used: newUsedCount, status: newStatus };
           }
           return c;
@@ -294,11 +301,10 @@ export default function CheckoutPage() {
         localStorage.setItem('mo_fashion_coupons', JSON.stringify(updatedCoupons));
       }
 
-      // 🚀 ৩. ক্লাউড ডাটাবেসে সেভ (POST API Call)
+      // 🚀 ৩. ক্লাউড ডাটাবেসে অর্ডার সেভ (Central API POST Call)
       try {
-        await fetch('http://localhost:5000/api/orders', {
+        await apiRequest('/orders', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(orderPayload)
         });
       } catch (err) {
