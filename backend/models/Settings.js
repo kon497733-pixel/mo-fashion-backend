@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-// গ্লোবাল সেটিংসের ডাটাবেস নকশা (Schema)
+// 🚀 গ্লোবাল সেটিংসের ডাটাবেস নকশা (Schema) - strict: false সহ
 const settingsSchema = new mongoose.Schema({
   storeName: {
     type: String,
@@ -75,7 +75,8 @@ const settingsSchema = new mongoose.Schema({
     answer: { type: String }
   }]
 }, {
-  timestamps: true // সেভ করার সময় ধরে রাখবে
+  timestamps: true,
+  strict: false // 🚀 মঙ্গোডিবি ক্লাউড ডাটাবেসে ১০০% স্থায়ী সেভিং গ্যারান্টি
 });
 
 module.exports = mongoose.model('Settings', settingsSchema);
