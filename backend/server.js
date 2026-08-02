@@ -7,13 +7,18 @@ require('dotenv').config();
 const productRoutes = require('./routes/productRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
-const authRoutes = require('./routes/authRoutes'); // 🚀 জিমেইল ইমেইল ভেরিফিকেশন রাউট
+const authRoutes = require('./routes/authRoutes');
 
 // অ্যাপ ইনিশিয়ালাইজ করা
 const app = express();
 
-// মিডলওয়্যার (Middleware)
-app.use(cors());
+// 🚀 ১০০% কড়া CORS ফিক্স (যাতে Vercel কোনো রিকোয়েস্ট ব্লক না করে)
+app.use(cors({
+  origin: '*', 
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.options('*', cors()); // Preflight request allow
 
 // লোগো ও ছবির (Base64) জন্য ডাটা লিমিট 50MB করা হলো
 app.use(express.json({ limit: '50mb' }));
@@ -42,7 +47,7 @@ app.use(async (req, res, next) => {
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/settings', settingsRoutes);
-app.use('/api/auth', authRoutes); // 🚀 জিমেইল OTP সিকিউরিটি API যুক্ত করা হলো
+app.use('/api/auth', authRoutes);
 
 // বেসিক টেস্ট রাউট
 app.get('/', (req, res) => {
