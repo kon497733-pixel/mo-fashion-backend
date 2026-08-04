@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft, CreditCard, Smartphone, Banknote, Tag, MapPin, Sparkles, ShieldCheck, Navigation } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -190,15 +190,35 @@ export default function CheckoutPage() {
     setSelectedThana(thanas[0] || '');
   };
 
-  // রিয়েল-টাইম সাবটোটাল হিসাব
+  // 🚀 রিয়েল-টাইম সাবটোটাল ও প্রোডাক্ট আইটেম প্রস্তুতি
   let subtotalAfterProductDiscount = 0;
-  items.forEach((cartItem: any) => {
+  const formattedOrderItems = items.map((cartItem: any) => {
     const dbProduct = dbProducts.find(p => String(p.id || p._id) === String(cartItem.id));
     const originalPrice = dbProduct ? Number(dbProduct.price) : Number(cartItem.price);
     const discountPercent = dbProduct ? Number(dbProduct.discount) || 0 : 0;
     const sellingPrice = originalPrice - (originalPrice * discountPercent) / 100;
     
     subtotalAfterProductDiscount += sellingPrice * cartItem.quantity;
+
+    let productImage = 'No Image';
+    if (cartItem.image && cartItem.image !== 'No Image') {
+      productImage = cartItem.image;
+    } else if (dbProduct?.images?.[0]) {
+      productImage = dbProduct.images[0];
+    } else if (dbProduct?.imageUrl) {
+      productImage = dbProduct.imageUrl;
+    }
+
+    return {
+      id: String(cartItem.id),
+      name: String(cartItem.name || dbProduct?.name || 'Fashion Product'),
+      price: Number(sellingPrice.toFixed(2)),
+      originalPrice: Number(originalPrice.toFixed(2)),
+      quantity: Number(cartItem.quantity) || 1,
+      size: String(cartItem.size || 'Standard'),
+      color: String(cartItem.color || 'Default'),
+      image: productImage
+    };
   });
 
   // 🚀 চট্টগ্রাম এলাকা বা ঢাকার ভেতরের শিপিং চার্জ
@@ -242,7 +262,7 @@ export default function CheckoutPage() {
     return emailRegex.test(email.trim());
   };
 
-  // 🚀 প্লেস অর্ডার লজিক (Unstoppable Order & Customer Cloud Placement)
+  // 🚀 প্লেস অর্ডার লজিক (A to Z Complete Order Details Live Cloud Save)
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault(); 
     
@@ -279,6 +299,7 @@ export default function CheckoutPage() {
     const customerEmail = formData.email.trim() || `${formData.phone.trim()}@mofashion.com`;
     const fullLocationStr = `${selectedThana}, ${selectedDistrict}, ${selectedDivision}`;
 
+    // 🚀 A to Z পূর্ণাঙ্গ অর্ডার পে-লোড (যা মোডালে সব তথ্য স্পষ্ট দেখাবে)
     const orderPayload = {
       id: orderId,
       _id: orderId,
@@ -299,12 +320,17 @@ export default function CheckoutPage() {
       address: `${formData.address.trim()}, ${fullLocationStr}${formData.postalCode.trim() ? ' - ' + formData.postalCode.trim() : ''}, Bangladesh`,
       date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
       createdAt: new Date().toISOString(),
+      subtotal: subtotalAfterProductDiscount,
+      shipping: shipping,
+      tax: taxAmount,
+      discount: finalCouponDiscountAmount,
       total: totalAmount,
       status: 'Pending',
-      items: items.length,
+      itemsCount: items.length,
       paymentMethod: paymentMethod,
       paymentDetails: { method: paymentMethod, status: 'Pending' },
-      orderItems: items,
+      orderItems: formattedOrderItems,
+      items: formattedOrderItems,
       orderSummary: {
         subtotal: subtotalAfterProductDiscount,
         shipping: shipping,
