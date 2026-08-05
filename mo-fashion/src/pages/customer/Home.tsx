@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
-  ShoppingBag, Eye, Star, ChevronRight, ArrowRight, 
-  ShieldCheck, Truck, RotateCcw, Award, TrendingUp, RefreshCw 
+  ShoppingBag, Eye, Star, ChevronRight, ChevronLeft, 
+  ShieldCheck, Truck, RotateCcw, Award, RefreshCw 
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
@@ -18,6 +18,7 @@ import {
 export default function Home() {
   const navigate = useNavigate();
   const cartStore = useCartStore();
+  const productSliderRef = useRef<HTMLDivElement>(null);
 
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -46,7 +47,7 @@ export default function Home() {
     const loadHomeData = async () => {
       setLoading(true);
 
-      // Cached load
+      // Cached load first for instant paint
       const cachedProducts = localStorage.getItem('mo_fashion_products');
       if (cachedProducts) { try { setProducts(JSON.parse(cachedProducts)); } catch (e) {} }
 
@@ -107,6 +108,14 @@ export default function Home() {
 
   const handleHeroMouseLeave = () => {
     setHeroTilt({ x: 0, y: 0 });
+  };
+
+  // 🚀 Slider Scroll Control (Left / Right)
+  const scrollSlider = (direction: 'left' | 'right') => {
+    if (productSliderRef.current) {
+      const scrollAmount = direction === 'left' ? -320 : 320;
+      productSliderRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
   };
 
   // 🚀 Quick Add to Cart Handler (Safe Universal Call)
@@ -321,72 +330,15 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 🚀 3. FEATURED CATEGORIES SECTION (REAL IMAGES & CLICK FIX) */}
-      {availableCategoryList.length > 0 && (
-        <section className="py-16 px-4">
-          <div className="container mx-auto max-w-7xl">
-            <div className="flex justify-between items-end mb-8 border-b border-[#D4AF37]/20 pb-4">
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-serif font-bold text-[#D4AF37] uppercase tracking-wider flex items-center">
-                  {storeLogoImage ? (
-                    <img src={storeLogoImage} alt="" className="w-6 h-6 mr-2.5 object-cover rounded-full" />
-                  ) : (
-                    <TrendingUp className="mr-2 text-[#D4AF37]" size={24} />
-                  )}
-                  LUXURY CATEGORIES
-                </h2>
-                <p className="text-xs sm:text-sm text-gray-400 mt-1">Explore our exclusive real collections</p>
-              </div>
-              <Link to="/categories" className="text-xs font-bold text-[#D4AF37] hover:underline flex items-center">
-                <span>VIEW ALL</span>
-                <ChevronRight size={16} />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-              {availableCategoryList.slice(0, 4).map((cat: any, index: number) => {
-                const catName = cat.name || cat;
-                const catImg = cat.image || cat.imageUrl || cat.photoUrl || '';
-
-                return (
-                  <div
-                    key={index}
-                    onClick={() => navigate(`/products?category=${encodeURIComponent(catName)}`)}
-                    className="group relative h-40 sm:h-52 rounded-2xl bg-[#1A1A1A] border border-gray-800 hover:border-[#D4AF37] overflow-hidden cursor-pointer shadow-xl transition-all duration-500 hover:scale-105 active:scale-95 [perspective:1000px]"
-                  >
-                    {catImg ? (
-                      <img src={catImg} alt={catName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-70 group-hover:opacity-90" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-[#1A1A1A] via-[#111111] to-[#1A1A1A] flex items-center justify-center p-4 text-center">
-                        <span className="font-serif font-bold text-[#D4AF37] text-lg uppercase">{catName}</span>
-                      </div>
-                    )}
-
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent p-4 flex flex-col justify-end">
-                      <span className="text-xs sm:text-base font-serif font-bold text-white group-hover:text-[#D4AF37] transition-colors uppercase">
-                        {catName}
-                      </span>
-                      <span className="text-[10px] text-gray-400 flex items-center mt-1">
-                        Explore Items <ArrowRight size={12} className="ml-1 group-hover:translate-x-1 transition-transform" />
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* 🚀 4. NEW ARRIVALS & PRODUCTS SECTION (NO SPARKLES, REAL-TIME STAR RATINGS, 3D SOLD BADGE) */}
-      <section className="py-16 px-4 bg-[#111111]">
+      {/* 🚀 3. NEW ARRIVALS & PRODUCTS 3D SLIDER (HORIZONTAL CAROUSEL SLIDER ENABLED) */}
+      <section className="py-16 px-4 bg-[#111111] relative">
         <div className="container mx-auto max-w-7xl">
           
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 border-b border-[#D4AF37]/20 pb-4 gap-4">
             <div>
               <h2 className="text-2xl sm:text-4xl font-serif font-bold text-[#D4AF37] uppercase tracking-wider flex items-center">
                 {storeLogoImage ? (
-                  <img src={storeLogoImage} alt="" className="w-8 h-8 mr-3 object-cover rounded-full" />
+                  <img src={storeLogoImage} alt="" className="w-8 h-8 mr-3 object-cover rounded-full border border-[#D4AF37]/40" />
                 ) : null}
                 NEW ARRIVALS
               </h2>
@@ -396,37 +348,59 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="flex items-center space-x-2 overflow-x-auto custom-scrollbar pb-2 md:pb-0">
-              <button
-                onClick={() => setActiveCategory('All')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  activeCategory === 'All'
-                    ? 'bg-[#D4AF37] text-black shadow-lg shadow-[#D4AF37]/20'
-                    : 'bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#D4AF37]/40'
-                }`}
-              >
-                ALL PRODUCTS
-              </button>
+            {/* Category Filter Tabs & Slider Arrows */}
+            <div className="flex items-center space-x-3 overflow-x-auto custom-scrollbar pb-2 md:pb-0">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setActiveCategory('All')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                    activeCategory === 'All'
+                      ? 'bg-[#D4AF37] text-black shadow-lg shadow-[#D4AF37]/20'
+                      : 'bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#D4AF37]/40'
+                  }`}
+                >
+                  ALL PRODUCTS
+                </button>
 
-              {availableCategoryList.slice(0, 5).map((cat: any, idx: number) => {
-                const cName = cat.name || cat;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => setActiveCategory(cName)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                      activeCategory.toLowerCase() === cName.toLowerCase()
-                        ? 'bg-[#D4AF37] text-black shadow-lg shadow-[#D4AF37]/20'
-                        : 'bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#D4AF37]/40'
-                    }`}
-                  >
-                    {String(cName).toUpperCase()}
-                  </button>
-                );
-              })}
+                {availableCategoryList.slice(0, 5).map((cat: any, idx: number) => {
+                  const cName = cat.name || cat;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveCategory(cName)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                        activeCategory.toLowerCase() === cName.toLowerCase()
+                          ? 'bg-[#D4AF37] text-black shadow-lg shadow-[#D4AF37]/20'
+                          : 'bg-[#1A1A1A] text-gray-400 border border-gray-800 hover:border-[#D4AF37]/40'
+                      }`}
+                    >
+                      {String(cName).toUpperCase()}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Slider Left/Right Control Buttons */}
+              <div className="hidden sm:flex items-center space-x-2 shrink-0 pl-4 border-l border-gray-800">
+                <button
+                  onClick={() => scrollSlider('left')}
+                  className="p-2.5 bg-[#1A1A1A] hover:bg-[#D4AF37] text-gray-300 hover:text-black rounded-xl border border-gray-800 hover:border-[#D4AF37] transition-all active:scale-95 shadow-md"
+                  title="Previous Products"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  onClick={() => scrollSlider('right')}
+                  className="p-2.5 bg-[#1A1A1A] hover:bg-[#D4AF37] text-gray-300 hover:text-black rounded-xl border border-gray-800 hover:border-[#D4AF37] transition-all active:scale-95 shadow-md"
+                  title="Next Products"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
             </div>
           </div>
 
+          {/* 🚀 SMOOTH HORIZONTAL 3D PRODUCT SLIDER / CAROUSEL (MOBILE 2-COLUMNS FLEX) */}
           {filteredProducts.length === 0 ? (
             <div className="text-center py-20 bg-[#1A1A1A]/60 rounded-3xl border border-gray-800 p-8 max-w-xl mx-auto">
               <ShoppingBag size={48} className="mx-auto text-gray-600 mb-4 opacity-50" />
@@ -440,7 +414,10 @@ export default function Home() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+            <div 
+              ref={productSliderRef}
+              className="flex space-x-3 sm:space-x-6 overflow-x-auto custom-scrollbar pb-6 pt-2 scroll-smooth snap-x snap-mandatory"
+            >
               {filteredProducts.map((product: any) => {
                 const pId = String(product.id || product._id);
                 const pName = product.name || 'Luxury Fashion Item';
@@ -464,7 +441,7 @@ export default function Home() {
                   <div
                     key={pId}
                     onClick={() => navigate(`/product/${pId}`)}
-                    className="group relative bg-[#1A1A1A] border border-gray-800 hover:border-[#D4AF37]/60 rounded-2xl overflow-hidden cursor-pointer shadow-xl transition-all duration-500 hover:-translate-y-2 [perspective:1000px] [transform-style:preserve-3d]"
+                    className="w-[48%] sm:w-[48%] md:w-[30%] lg:w-[23%] shrink-0 snap-start group relative bg-[#1A1A1A] border border-gray-800 hover:border-[#D4AF37]/60 rounded-2xl overflow-hidden cursor-pointer shadow-xl transition-all duration-500 hover:-translate-y-2 [perspective:1000px] [transform-style:preserve-3d]"
                   >
                     {/* 3D Image Container */}
                     <div className="relative aspect-square w-full bg-[#111111] overflow-hidden">
@@ -488,13 +465,13 @@ export default function Home() {
                           </span>
                         ) : <span />}
 
-                        {/* 3D Metallic Stock Status Badge */}
-                        <span className={`font-bold text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full uppercase border backdrop-blur-md shadow-md ${
+                        {/* 🚀 ULTRA-PROMINENT 3D STOCK BADGE */}
+                        <span className={`font-bold text-[9px] sm:text-[10px] px-2.5 py-1 rounded-full uppercase border backdrop-blur-md shadow-md ${
                           isOutOfStock 
-                            ? 'bg-red-500/20 text-red-400 border-red-500/40 shadow-red-500/20' 
+                            ? 'bg-red-500/30 text-red-300 border-red-500 shadow-red-500/30' 
                             : isLowStock
-                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-amber-500/20 animate-pulse'
-                            : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-emerald-500/20'
+                            ? 'bg-amber-500/30 text-amber-200 border-amber-500 shadow-amber-500/30 animate-pulse'
+                            : 'bg-emerald-500/30 text-emerald-200 border-emerald-500 shadow-emerald-500/30'
                         }`}>
                           {isOutOfStock ? 'OUT OF STOCK' : isLowStock ? 'LOW STOCK' : 'IN STOCK'}
                         </span>
@@ -555,9 +532,9 @@ export default function Home() {
                           )}
                         </div>
 
-                        {/* 🚀 3D METALLIC GOLD "SOLD" BADGE */}
+                        {/* 🚀 ULTRA-PROMINENT 3D METALLIC GOLD "SOLD" BADGE */}
                         {Number(product.sold) > 0 && (
-                          <span className="bg-gradient-to-r from-[#D4AF37]/20 to-[#aa8c2c]/20 text-[#D4AF37] border border-[#D4AF37]/40 px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-bold shadow-md shadow-[#D4AF37]/10">
+                          <span className="bg-gradient-to-r from-[#D4AF37] to-[#aa8c2c] text-black border border-[#D4AF37] px-2.5 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-bold shadow-md shadow-[#D4AF37]/20 uppercase">
                             {product.sold} Sold
                           </span>
                         )}
@@ -572,7 +549,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 🚀 5. SPECIAL OFFER BANNER (ADMIN DYNAMIC TEXTS) */}
+      {/* 🚀 4. SPECIAL OFFER BANNER (ADMIN DYNAMIC TEXTS) */}
       <section className="py-16 px-4">
         <div className="container mx-auto max-w-7xl">
           <div className="relative rounded-3xl bg-gradient-to-r from-[#1A1A1A] via-[#111111] to-[#1A1A1A] border border-[#D4AF37]/40 p-8 sm:p-12 overflow-hidden shadow-2xl [perspective:1000px]">

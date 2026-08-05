@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
-  ShoppingBag, Eye, Star, ArrowLeft, Filter, RefreshCw 
+  ShoppingBag, Eye, Star, ArrowLeft,
+  Filter, RefreshCw 
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
@@ -34,6 +35,7 @@ export default function CategoryProductsPage() {
     const loadCategoryProducts = async () => {
       setLoading(true);
 
+      // Instant sync load from local storage
       const cachedProducts = localStorage.getItem('mo_fashion_products');
       if (cachedProducts) { try { setProducts(JSON.parse(cachedProducts)); } catch (e) {} }
 
@@ -260,13 +262,13 @@ export default function CategoryProductsPage() {
                         </span>
                       ) : <span />}
 
-                      {/* 3D Metallic Stock Status Badge */}
-                      <span className={`font-bold text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full uppercase border backdrop-blur-md shadow-md ${
+                      {/* 🚀 ULTRA-PROMINENT 3D STOCK BADGE */}
+                      <span className={`font-bold text-[9px] sm:text-[10px] px-2.5 py-1 rounded-full uppercase border backdrop-blur-md shadow-md ${
                         isOutOfStock 
-                          ? 'bg-red-500/20 text-red-400 border-red-500/40 shadow-red-500/20' 
+                          ? 'bg-red-500/30 text-red-300 border-red-500 shadow-red-500/30' 
                           : isLowStock
-                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-amber-500/20 animate-pulse'
-                          : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-emerald-500/20'
+                          ? 'bg-amber-500/30 text-amber-200 border-amber-500 shadow-amber-500/30 animate-pulse'
+                          : 'bg-emerald-500/30 text-emerald-200 border-emerald-500 shadow-emerald-500/30'
                       }`}>
                         {isOutOfStock ? 'OUT OF STOCK' : isLowStock ? 'LOW STOCK' : 'IN STOCK'}
                       </span>
@@ -326,9 +328,9 @@ export default function CategoryProductsPage() {
                         )}
                       </div>
 
-                      {/* 🚀 3D METALLIC GOLD "SOLD" BADGE */}
+                      {/* 🚀 ULTRA-PROMINENT 3D METALLIC GOLD "SOLD" BADGE */}
                       {Number(product.sold) > 0 && (
-                        <span className="bg-gradient-to-r from-[#D4AF37]/20 to-[#aa8c2c]/20 text-[#D4AF37] border border-[#D4AF37]/40 px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-bold shadow-md shadow-[#D4AF37]/10">
+                        <span className="bg-gradient-to-r from-[#D4AF37] to-[#aa8c2c] text-black border border-[#D4AF37] px-2.5 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-bold shadow-md shadow-[#D4AF37]/20 uppercase">
                           {product.sold} Sold
                         </span>
                       )}

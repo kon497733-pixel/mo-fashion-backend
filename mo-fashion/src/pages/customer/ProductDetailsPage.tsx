@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
-  ShoppingBag, Star, ArrowLeft, Heart, ShieldCheck, Truck, 
+  ShoppingBag, Star, ArrowLeft, ShieldCheck, Truck, 
   RotateCcw, Award, Plus, Minus, ThumbsUp, Trash2, Camera, X, Check,
-  CreditCard, Sparkles 
+  CreditCard 
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
@@ -23,20 +23,58 @@ export default function ProductDetailsPage() {
   const navigate = useNavigate();
   const cartStore = useCartStore();
 
-  const [product, setProduct] = useState<any>(null);
-  const [settings, setSettings] = useState<any>({
-    storeName: 'MO FASHION',
-    currency: '৳',
-    logoUrl: ''
+  // 🚀 INSTANT SYNCHRONOUS LOAD FROM LOCAL STORAGE (ZERO DELAY <50MS)
+  const [product, setProduct] = useState<any>(() => {
+    try {
+      const localProds = JSON.parse(localStorage.getItem('mo_fashion_products') || '[]');
+      return localProds.find((p: any) => String(p.id || p._id) === String(id)) || null;
+    } catch (e) {
+      return null;
+    }
   });
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [selectedImage, setSelectedImage] = useState<string>('');
-  const [selectedSize, setSelectedSize] = useState<string>('');
-  const [selectedColor, setSelectedColor] = useState<string>('');
-  const [quantity, setQuantity] = useState<number>(1);
-  const [loading, setLoading] = useState<boolean>(true);
 
-  // 🚀 রিভিউ সাবমিশন স্টেট (Daraz Style Photo Review)
+  const [settings, setSettings] = useState<any>(() => {
+    try {
+      const localSet = JSON.parse(localStorage.getItem('mo_fashion_settings') || '{}');
+      return {
+        storeName: 'MO FASHION',
+        currency: '৳',
+        logoUrl: '',
+        ...localSet
+      };
+    } catch (e) {
+      return { storeName: 'MO FASHION', currency: '৳', logoUrl: '' };
+    }
+  });
+
+  const [reviews, setReviews] = useState<any[]>(() => {
+    try {
+      const localRevs = JSON.parse(localStorage.getItem('mo_fashion_reviews') || '[]');
+      return localRevs.filter((r: any) => String(r.productId || r.product_id) === String(id));
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [selectedImage, setSelectedImage] = useState<string>(() => {
+    if (product) {
+      return product.images?.[0] || product.imageUrl || product.image || '';
+    }
+    return '';
+  });
+
+  const [selectedSize, setSelectedSize] = useState<string>(() => {
+    return Array.isArray(product?.sizes) && product.sizes[0] ? product.sizes[0] : '';
+  });
+
+  const [selectedColor, setSelectedColor] = useState<string>(() => {
+    return Array.isArray(product?.colors) && product.colors[0] ? product.colors[0] : '';
+  });
+
+  const [quantity, setQuantity] = useState<number>(1);
+  const [loading, setLoading] = useState<boolean>(!product);
+
+  // 🚀 দারাজ স্টাইল ফটো রিভিউ ফর্ম স্টেট
   const [reviewForm, setReviewForm] = useState({
     rating: 5,
     userName: '',
@@ -47,11 +85,9 @@ export default function ProductDetailsPage() {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [previewModalImage, setPreviewModalImage] = useState<string | null>(null);
 
+  // 🚀 BACKGROUND CLOUD DB RE-SYNC (NON-BLOCKING)
   useEffect(() => {
-    const loadProductData = async () => {
-      setLoading(true);
-
-      // Load products & reviews
+    const syncCloudData = async () => {
       try {
         const [cloudProds, cloudSet, cloudRevs] = await Promise.all([
           getSupabaseProducts().catch(() => []),
@@ -67,40 +103,26 @@ export default function ProductDetailsPage() {
 
         if (foundProd) {
           setProduct(foundProd);
-          
-          let firstImg = '';
-          if (foundProd.images && foundProd.images[0]) firstImg = foundProd.images[0];
-          else if (foundProd.imageUrl) firstImg = foundProd.imageUrl;
-          else if (foundProd.image) firstImg = foundProd.image;
-          setSelectedImage(firstImg);
-
-          if (Array.isArray(foundProd.sizes) && foundProd.sizes[0]) setSelectedSize(foundProd.sizes[0]);
-          if (Array.isArray(foundProd.colors) && foundProd.colors[0]) setSelectedColor(foundProd.colors[0]);
-        } else {
-          // Check local storage fallback
-          const localProds = JSON.parse(localStorage.getItem('mo_fashion_products') || '[]');
-          const localFound = localProds.find((p: any) => String(p.id || p._id) === String(id));
-          if (localFound) {
-            setProduct(localFound);
-            setSelectedImage(localFound.images?.[0] || localFound.imageUrl || localFound.image || '');
-            if (localFound.sizes?.[0]) setSelectedSize(localFound.sizes[0]);
-            if (localFound.colors?.[0]) setSelectedColor(localFound.colors[0]);
+          if (!selectedImage) {
+            setSelectedImage(foundProd.images?.[0] || foundProd.imageUrl || foundProd.image || '');
           }
+          if (!selectedSize && foundProd.sizes?.[0]) setSelectedSize(foundProd.sizes[0]);
+          if (!selectedColor && foundProd.colors?.[0]) setSelectedColor(foundProd.colors[0]);
         }
 
         if (Array.isArray(cloudRevs)) {
           setReviews(cloudRevs);
         }
       } catch (err) {
-        console.warn('Data load error:', err);
+        console.warn('Background sync warning:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    loadProductData();
+    syncCloudData();
 
-    const handleUpdate = () => loadProductData();
+    const handleUpdate = () => syncCloudData();
     window.addEventListener('storage', handleUpdate);
     window.addEventListener('reviewUpdated', handleUpdate);
     window.addEventListener('productUpdated', handleUpdate);
@@ -167,7 +189,6 @@ export default function ProductDetailsPage() {
         photoUrl: ''
       });
 
-      // Reload reviews
       const updatedRevs = await getSupabaseReviews(id);
       setReviews(updatedRevs);
 
@@ -179,7 +200,6 @@ export default function ProductDetailsPage() {
     }
   };
 
-  // 🚀 লাইক ও ডিলিট রিভিউ
   const handleLike = async (reviewId: string, currentLikes: number) => {
     const newCount = await likeSupabaseReview(reviewId, currentLikes);
     setReviews(prev => prev.map(r => String(r.id) === String(reviewId) ? { ...r, likes: newCount } : r));
@@ -194,7 +214,7 @@ export default function ProductDetailsPage() {
     }
   };
 
-  if (loading) {
+  if (loading && !product) {
     return (
       <div className="min-h-screen bg-[#111111] text-white flex items-center justify-center pt-20">
         <div className="flex flex-col items-center space-y-4">
@@ -233,12 +253,11 @@ export default function ProductDetailsPage() {
     ? (reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / reviews.length).toFixed(1)
     : '0.0';
 
-  // Product Images Array
   const allImages = Array.isArray(product.images) && product.images.length > 0 
     ? product.images 
     : [product.imageUrl || product.image || selectedImage];
 
-  // 🚀 Add to Cart Logic
+  // Add to Cart Logic
   const handleAddToCart = (isBuyNow = false) => {
     if (isOutOfStock) {
       toast.error("Sorry, this item is out of stock!");
@@ -305,7 +324,6 @@ export default function ProductDetailsPage() {
           
           {/* Left Column: 3D Product Image Gallery */}
           <div className="space-y-4 [perspective:1000px]">
-            {/* Main 3D Hero Display Card */}
             <div className="relative aspect-square w-full rounded-3xl bg-[#1A1A1A] border border-gray-800 shadow-[0_20px_50px_rgba(0,0,0,0.9)] overflow-hidden group [transform-style:preserve-3d]">
               {selectedImage ? (
                 <img 
@@ -327,12 +345,13 @@ export default function ProductDetailsPage() {
                   </span>
                 ) : <span />}
 
-                <span className={`font-bold text-xs px-3 py-1 rounded-full uppercase border backdrop-blur-md shadow-md ${
+                {/* 🚀 ULTRA-PROMINENT 3D STOCK BADGE */}
+                <span className={`font-bold text-xs px-3 py-1.5 rounded-full uppercase border backdrop-blur-md shadow-lg ${
                   isOutOfStock 
-                    ? 'bg-red-500/20 text-red-400 border-red-500/40 shadow-red-500/20' 
+                    ? 'bg-red-500/30 text-red-300 border-red-500 shadow-red-500/30' 
                     : isLowStock
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-amber-500/20 animate-pulse'
-                    : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-emerald-500/20'
+                    ? 'bg-amber-500/30 text-amber-200 border-amber-500 shadow-amber-500/30 animate-pulse'
+                    : 'bg-emerald-500/30 text-emerald-200 border-emerald-500 shadow-emerald-500/30'
                 }`}>
                   {isOutOfStock ? 'OUT OF STOCK' : isLowStock ? 'LOW STOCK' : 'IN STOCK'}
                 </span>
@@ -360,21 +379,19 @@ export default function ProductDetailsPage() {
           {/* Right Column: 3D Product Details & Order Actions */}
           <div className="space-y-6">
             
-            {/* Category & Ratings */}
             <div className="flex justify-between items-center text-xs">
               <span className="bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/30 px-3 py-1 rounded-full font-bold uppercase tracking-widest">
                 {product.category || 'Luxury Collection'}
               </span>
 
               {/* Real-Time Customer Average Rating */}
-              <div className="flex items-center space-x-1 bg-[#1A1A1A] px-3 py-1 rounded-full border border-gray-800">
+              <div className="flex items-center space-x-1.5 bg-[#1A1A1A] px-3.5 py-1.5 rounded-full border border-gray-800">
                 <Star size={14} className="fill-yellow-400 text-yellow-400" />
                 <span className="font-bold text-white text-xs">{avgRating}</span>
                 <span className="text-gray-500">({reviews.length} {reviews.length === 1 ? 'review' : 'reviews'})</span>
               </div>
             </div>
 
-            {/* Product Title & Brand */}
             <div>
               <h1 className="text-2xl sm:text-4xl font-serif font-bold text-white uppercase tracking-wide leading-tight">
                 {product.name}
@@ -384,7 +401,7 @@ export default function ProductDetailsPage() {
               </p>
             </div>
 
-            {/* Price & Sold Count */}
+            {/* Price & 3D Metallic Sold Badge */}
             <div className="p-4 bg-[#1A1A1A] border border-gray-800 rounded-2xl flex items-center justify-between">
               <div className="flex items-baseline space-x-2">
                 <span className="text-2xl sm:text-3xl font-bold text-[#D4AF37]">
@@ -397,15 +414,14 @@ export default function ProductDetailsPage() {
                 )}
               </div>
 
-              {/* 3D Metallic Sold Badge */}
+              {/* 🚀 ULTRA-PROMINENT 3D METALLIC GOLD "SOLD" BADGE */}
               {Number(product.sold) > 0 && (
-                <span className="bg-gradient-to-r from-[#D4AF37]/20 to-[#aa8c2c]/20 text-[#D4AF37] border border-[#D4AF37]/40 px-3 py-1 rounded-xl text-xs font-bold shadow-md shadow-[#D4AF37]/10">
+                <span className="bg-gradient-to-r from-[#D4AF37] to-[#aa8c2c] text-black border border-[#D4AF37] px-3 py-1 rounded-xl text-xs font-bold shadow-md shadow-[#D4AF37]/20 uppercase">
                   {product.sold} Sold
                 </span>
               )}
             </div>
 
-            {/* Description */}
             {product.description && (
               <div className="text-xs sm:text-sm text-gray-300 leading-relaxed font-light bg-[#1A1A1A]/40 p-4 rounded-2xl border border-gray-800/80">
                 {product.description}
@@ -512,7 +528,9 @@ export default function ProductDetailsPage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-800 pb-4 gap-4">
               <div>
                 <h2 className="text-2xl font-serif font-bold text-[#D4AF37] uppercase tracking-wider flex items-center">
-                  <Star className="mr-2 text-yellow-400 fill-yellow-400" size={24} />
+                  {storeLogoImage ? (
+                    <img src={storeLogoImage} alt="" className="w-6 h-6 mr-2.5 object-cover rounded-full" />
+                  ) : null}
                   CUSTOMER REVIEWS ({reviews.length})
                 </h2>
                 <p className="text-xs text-gray-400 mt-1">Real feedback from verified buyers with photo uploads</p>
@@ -524,7 +542,7 @@ export default function ProductDetailsPage() {
                 <div>
                   <div className="flex text-yellow-400 text-xs">
                     {[1,2,3,4,5].map(s => (
-                      <Star key={s} size={12} className={s <= Math.round(Number(avgRating)) ? 'fill-yellow-400' : 'text-gray-600'} />
+                      <Star key={s} size={12} className={s <= Math.round(Number(avgRating)) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600'} />
                     ))}
                   </div>
                   <span className="text-[10px] text-gray-500 font-semibold">{reviews.length} Verified Reviews</span>
@@ -532,14 +550,13 @@ export default function ProductDetailsPage() {
               </div>
             </div>
 
-            {/* 🚀 DARAZ STYLE REVIEW SUBMISSION FORM (WITH PHOTO ATTACHMENT) */}
+            {/* 🚀 DARAZ STYLE REVIEW SUBMISSION FORM */}
             <div className="bg-[#1A1A1A] border border-[#D4AF37]/30 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-              <h3 className="text-lg font-serif font-bold text-white uppercase tracking-wide flex items-center">
-                <Sparkles size={18} className="mr-2 text-[#D4AF37]" /> Write a Customer Review
+              <h3 className="text-lg font-serif font-bold text-white uppercase tracking-wide">
+                Write a Customer Review
               </h3>
 
               <form onSubmit={handleReviewSubmit} className="space-y-4">
-                {/* Rating Selector */}
                 <div>
                   <label className="block text-xs font-bold uppercase text-gray-400 mb-2">Select Your Rating *</label>
                   <div className="flex items-center space-x-2">
@@ -635,7 +652,7 @@ export default function ProductDetailsPage() {
               </form>
             </div>
 
-            {/* 🚀 REVIEWS LISTING DISPLAY (WITH DARAZ STYLE THUMBNAIL PHOTOS) */}
+            {/* REVIEWS LISTING DISPLAY (WITH DARAZ STYLE THUMBNAIL PHOTOS) */}
             <div className="space-y-4">
               {reviews.length === 0 ? (
                 <div className="text-center py-12 bg-[#1A1A1A]/40 rounded-3xl border border-gray-800/80 p-6">
@@ -684,14 +701,10 @@ export default function ProductDetailsPage() {
                           className="w-16 h-16 rounded-xl border border-[#D4AF37]/40 overflow-hidden cursor-pointer hover:scale-105 transition-transform shadow-md relative group"
                         >
                           <img src={rev.photoUrl} alt="Review attachment" className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                            <Sparkles size={12} />
-                          </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Like Action */}
                     <div className="pt-2 flex items-center space-x-4 text-xs border-t border-gray-800/80">
                       <button
                         onClick={() => handleLike(rev.id, Number(rev.likes || 0))}
