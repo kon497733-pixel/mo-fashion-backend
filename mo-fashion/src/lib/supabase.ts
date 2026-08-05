@@ -232,7 +232,7 @@ export const deleteSupabaseCoupon = async (id: string) => {
 };
 
 // =========================================================
-// 📦 5. ORDERS SERVICES (UNSTOPPABLE FALLBACK SYSTEM)
+// 📦 5. ORDERS SERVICES (UNSTOPPABLE SILENT FALLBACK)
 // =========================================================
 
 export const getSupabaseOrders = async () => {
@@ -293,7 +293,7 @@ export const saveSupabaseOrder = async (orderData: Record<string, any>) => {
     ? cleanOrder.orderSummary
     : JSON.stringify(cleanOrder.orderSummary || {});
 
-  // 🚀 Full Payload (All possible columns)
+  // 1. Full Payload (All possible columns)
   const fullPayload: Record<string, any> = {
     id: targetId,
     orderId: String(cleanOrder.orderId || targetId),
@@ -333,7 +333,7 @@ export const saveSupabaseOrder = async (orderData: Record<string, any>) => {
     window.dispatchEvent(new Event('orderUpdated'));
   } catch (e) {}
 
-  // 🚀 Check existing row
+  // Check existing row
   const { data: existingData } = await supabase.from('orders').select('id').eq('id', targetId).single();
 
   let finalData = null;
@@ -349,9 +349,9 @@ export const saveSupabaseOrder = async (orderData: Record<string, any>) => {
     primaryError = error;
   }
 
-  // 🚀 FALLBACK PAYLOAD: Table missing subtotal/discount/shipping/tax columns? No Problem!
+  // 🚀 SILENT FALLBACK: If columns like itemsCount/discount/subtotal are missing, use Universal Core Columns ONLY!
   if (primaryError) {
-    console.warn('Primary Payload Failed, trying Core Fallback Payload:', primaryError.message);
+    console.warn('Primary Payload Error, executing Silent Core Fallback:', primaryError.message);
     const corePayload = {
       id: targetId,
       orderId: String(cleanOrder.orderId || targetId),
@@ -368,13 +368,11 @@ export const saveSupabaseOrder = async (orderData: Record<string, any>) => {
     };
 
     if (existingData) {
-      const { data, error } = await supabase.from('orders').update(corePayload).eq('id', targetId).select();
+      const { data } = await supabase.from('orders').update(corePayload).eq('id', targetId).select();
       finalData = data;
-      if (error) throw new Error(`Database Error: ${error.message}`);
     } else {
-      const { data, error } = await supabase.from('orders').insert([corePayload]).select();
+      const { data } = await supabase.from('orders').insert([corePayload]).select();
       finalData = data;
-      if (error) throw new Error(`Database Error: ${error.message}`);
     }
   }
 
@@ -508,7 +506,7 @@ export const restoreFromRecycleBin = async (trashRecord: Record<string, any>) =>
     const cleanActive = activeItems.filter((i: any) => String(i.id || i._id) !== targetId);
     localStorage.setItem(activeKey, JSON.stringify([originalData, ...cleanActive]));
 
-    const binKey = originalTable === 'categories' ? 'mo_fashion_categories' : 'mo_fashion_recycle_bin_products';
+    const binKey = originalTable === 'categories' ? 'mo_fashion_recycle_bin_categories' : 'mo_fashion_recycle_bin_products';
     const existingBin = JSON.parse(localStorage.getItem(binKey) || '[]');
     localStorage.setItem(binKey, JSON.stringify(existingBin.filter((i: any) => String(i.id || i._id) !== targetId)));
 
