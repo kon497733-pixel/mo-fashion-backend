@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
-  Sparkles, ShoppingBag, Eye, Star, ArrowLeft,
-  Filter, RefreshCw 
+  ShoppingBag, Eye, Star, ArrowLeft, Filter, RefreshCw 
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
@@ -10,7 +9,8 @@ import toast from 'react-hot-toast';
 import { useCartStore } from '../../store/useCartStore';
 import { 
   getSupabaseProducts, 
-  getSupabaseSettings 
+  getSupabaseSettings,
+  getSupabaseReviews 
 } from '../../lib/supabase';
 
 export default function CategoryProductsPage() {
@@ -19,9 +19,11 @@ export default function CategoryProductsPage() {
   const cartStore = useCartStore();
 
   const [products, setProducts] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({
     storeName: 'MO FASHION',
-    currency: '৳'
+    currency: '৳',
+    logoUrl: ''
   });
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('newest');
@@ -33,27 +35,24 @@ export default function CategoryProductsPage() {
       setLoading(true);
 
       const cachedProducts = localStorage.getItem('mo_fashion_products');
-      if (cachedProducts) {
-        try { setProducts(JSON.parse(cachedProducts)); } catch (e) {}
-      }
+      if (cachedProducts) { try { setProducts(JSON.parse(cachedProducts)); } catch (e) {} }
 
       const cachedSettings = localStorage.getItem('mo_fashion_settings');
-      if (cachedSettings) {
-        try { setSettings(JSON.parse(cachedSettings)); } catch (e) {}
-      }
+      if (cachedSettings) { try { setSettings(JSON.parse(cachedSettings)); } catch (e) {} }
+
+      const cachedReviews = localStorage.getItem('mo_fashion_reviews');
+      if (cachedReviews) { try { setReviews(JSON.parse(cachedReviews)); } catch (e) {} }
 
       try {
-        const [cloudProds, cloudSet] = await Promise.all([
+        const [cloudProds, cloudSet, cloudRevs] = await Promise.all([
           getSupabaseProducts().catch(() => []),
-          getSupabaseSettings().catch(() => null)
+          getSupabaseSettings().catch(() => null),
+          getSupabaseReviews().catch(() => [])
         ]);
 
-        if (Array.isArray(cloudProds) && cloudProds.length > 0) {
-          setProducts(cloudProds);
-        }
-        if (cloudSet) {
-          setSettings(cloudSet);
-        }
+        if (Array.isArray(cloudProds) && cloudProds.length > 0) setProducts(cloudProds);
+        if (cloudSet) setSettings((prev: any) => ({ ...prev, ...cloudSet }));
+        if (Array.isArray(cloudRevs) && cloudRevs.length > 0) setReviews(cloudRevs);
       } catch (err) {
         console.warn('Cloud fetch fallback engaged.');
       } finally {
@@ -66,10 +65,12 @@ export default function CategoryProductsPage() {
     const handleStorageUpdate = () => loadCategoryProducts();
     window.addEventListener('storage', handleStorageUpdate);
     window.addEventListener('productUpdated', handleStorageUpdate);
+    window.addEventListener('reviewUpdated', handleStorageUpdate);
 
     return () => {
       window.removeEventListener('storage', handleStorageUpdate);
       window.removeEventListener('productUpdated', handleStorageUpdate);
+      window.removeEventListener('reviewUpdated', handleStorageUpdate);
     };
   }, [categoryName]);
 
@@ -117,6 +118,16 @@ export default function CategoryProductsPage() {
     toast.success(`${product.name} added to cart! 🛒`);
   };
 
+  // 🚀 REAL-TIME AVERAGE STAR RATING CALCULATOR (NO DEFAULT 5.0!)
+  const getProductRatingStats = (productId: string) => {
+    const prodReviews = reviews.filter(r => String(r.productId || r.product_id) === String(productId));
+    if (prodReviews.length === 0) return { rating: '0.0', count: 0 };
+    
+    const sum = prodReviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0);
+    const avg = (sum / prodReviews.length).toFixed(1);
+    return { rating: avg, count: prodReviews.length };
+  };
+
   // 🚀 Filter products strictly by category
   let categoryProducts = products.filter(p => {
     const prodCat = String(p.category || '').trim().toLowerCase();
@@ -133,10 +144,13 @@ export default function CategoryProductsPage() {
     categoryProducts.sort((a, b) => (Number(b.discount) || 0) - (Number(a.discount) || 0));
   }
 
+  const storeLogoImage = settings?.logoUrl || settings?.logo || settings?.storeLogo || '';
+  const storeBrandTitle = settings?.storeName || 'MO FASHION';
+
   return (
     <main className="min-h-screen pt-24 pb-16 text-white bg-[#111111] transition-all duration-300">
       <Helmet>
-        <title>{decodedCategoryName} | {settings?.storeName || 'MO FASHION'}</title>
+        <title>{decodedCategoryName} | {storeBrandTitle}</title>
       </Helmet>
 
       <div className="container mx-auto px-4 max-w-7xl">
@@ -154,7 +168,9 @@ export default function CategoryProductsPage() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 pb-6 border-b border-[#D4AF37]/20 gap-4">
           <div>
             <div className="inline-flex items-center space-x-2 bg-[#1A1A1A] border border-[#D4AF37]/30 px-3.5 py-1.5 rounded-full text-xs font-bold text-[#D4AF37] uppercase mb-3">
-              <Sparkles size={14} className="animate-pulse" />
+              {storeLogoImage ? (
+                <img src={storeLogoImage} alt="" className="w-4 h-4 object-cover rounded-full" />
+              ) : null}
               <span>CATEGORY COLLECTION</span>
             </div>
             <h1 className="text-3xl md:text-5xl font-serif font-bold text-white uppercase tracking-wider">
@@ -209,7 +225,12 @@ export default function CategoryProductsPage() {
               else if (product.imageUrl) pImg = product.imageUrl;
               else if (product.image) pImg = product.image;
 
-              const isOutOfStock = Number(product.stock) <= 0 || product.status === 'Out of Stock';
+              const stockCount = Number(product.stock) || 0;
+              const isOutOfStock = stockCount <= 0 || product.status === 'Out of Stock';
+              const isLowStock = stockCount > 0 && stockCount <= 3;
+
+              // 🚀 REAL-TIME RATING CALCULATOR
+              const ratingStats = getProductRatingStats(pId);
 
               return (
                 <div
@@ -234,17 +255,20 @@ export default function CategoryProductsPage() {
                     {/* 3D Floating Badges */}
                     <div className="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-start z-10">
                       {discountPercent > 0 ? (
-                        <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold text-[10px] sm:text-xs px-2.5 py-1 rounded-lg shadow-md border border-red-400/30">
+                        <span className="bg-gradient-to-r from-red-600 via-orange-500 to-[#D4AF37] text-white font-bold text-[10px] sm:text-xs px-2.5 py-1 rounded-lg shadow-[0_4px_12px_rgba(220,38,38,0.4)] border border-red-400/40">
                           -{discountPercent}% OFF
                         </span>
                       ) : <span />}
 
-                      <span className={`font-bold text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full uppercase border backdrop-blur-md ${
+                      {/* 3D Metallic Stock Status Badge */}
+                      <span className={`font-bold text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full uppercase border backdrop-blur-md shadow-md ${
                         isOutOfStock 
-                          ? 'bg-red-500/10 text-red-400 border-red-500/30' 
-                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                          ? 'bg-red-500/20 text-red-400 border-red-500/40 shadow-red-500/20' 
+                          : isLowStock
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-amber-500/20 animate-pulse'
+                          : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-emerald-500/20'
                       }`}>
-                        {isOutOfStock ? 'OUT OF STOCK' : 'IN STOCK'}
+                        {isOutOfStock ? 'OUT OF STOCK' : isLowStock ? 'LOW STOCK' : 'IN STOCK'}
                       </span>
                     </div>
 
@@ -277,18 +301,20 @@ export default function CategoryProductsPage() {
                       <span className="uppercase tracking-wider font-semibold text-[#D4AF37]">
                         {product.category || decodedCategoryName}
                       </span>
-                      <span className="flex items-center text-yellow-400 font-bold">
+                      
+                      {/* 🚀 REAL-TIME STAR RATING (NO DEFAULT 5.0!) */}
+                      <span className="flex items-center text-yellow-400 font-bold bg-[#111111] px-2 py-0.5 rounded-full border border-gray-800">
                         <Star size={12} className="fill-yellow-400 mr-1" />
-                        5.0
+                        {ratingStats.rating > '0.0' ? `${ratingStats.rating} (${ratingStats.count})` : 'New'}
                       </span>
                     </div>
 
-                    <h3 className="font-serif font-bold text-xs sm:text-sm text-white line-clamp-1 group-hover:text-[#D4AF37] transition-colors">
+                    <h3 className="font-serif font-bold text-xs sm:text-sm text-white line-clamp-1 group-hover:text-[#D4AF37] transition-colors uppercase tracking-wide">
                       {pName}
                     </h3>
 
-                    {/* Pricing */}
-                    <div className="flex items-baseline justify-between pt-1">
+                    {/* Pricing & 3D Sold Badge */}
+                    <div className="flex items-center justify-between pt-1">
                       <div className="flex items-baseline space-x-1.5">
                         <span className="font-bold text-sm sm:text-base text-[#D4AF37]">
                           {settings?.currency || '৳'} {finalPrice.toFixed(2)}
@@ -300,8 +326,9 @@ export default function CategoryProductsPage() {
                         )}
                       </div>
 
+                      {/* 🚀 3D METALLIC GOLD "SOLD" BADGE */}
                       {Number(product.sold) > 0 && (
-                        <span className="text-[9px] sm:text-[10px] text-gray-500 font-medium">
+                        <span className="bg-gradient-to-r from-[#D4AF37]/20 to-[#aa8c2c]/20 text-[#D4AF37] border border-[#D4AF37]/40 px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-bold shadow-md shadow-[#D4AF37]/10">
                           {product.sold} Sold
                         </span>
                       )}

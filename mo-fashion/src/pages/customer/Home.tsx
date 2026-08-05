@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  Sparkles, ShoppingBag, Eye, Star, ChevronRight, ArrowRight, 
+  ShoppingBag, Eye, Star, ChevronRight, ArrowRight, 
   ShieldCheck, Truck, RotateCcw, Award, TrendingUp, RefreshCw 
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
@@ -11,19 +11,33 @@ import { useCartStore } from '../../store/useCartStore';
 import { 
   getSupabaseProducts, 
   getSupabaseCategories, 
-  getSupabaseSettings 
+  getSupabaseSettings,
+  getSupabaseReviews 
 } from '../../lib/supabase';
 
-export default function HomePage() {
+export default function Home() {
   const navigate = useNavigate();
   const cartStore = useCartStore();
 
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({
     storeName: 'MO FASHION',
-    currency: '৳'
+    tagline: 'LUXURY COLLECTION',
+    currency: '৳',
+    logoUrl: '',
+    heroBadge: 'EXCLUSIVE LUXURY COLLECTION',
+    heroTitle: 'ELEVATE YOUR SIGNATURE STYLE',
+    heroDescription: 'Discover handcrafted luxury apparel and accessories designed to redefine modern elegance. Premium quality tailored for perfection.',
+    heroCardTitle: '100% AUTHENTIC',
+    heroCardSubtitle: 'PREMIUM FASHION GUARANTEED',
+    heroCardEst: 'EST. 2026',
+    offerBadge: 'LIMITED TIME OFFER',
+    offerTitle: 'SPECIAL LUXURY DISCOUNT UP TO 30% OFF',
+    offerDescription: 'Upgrade your wardrobe today with our exclusive premium collection. Fast nationwide delivery available.'
   });
+
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
   const [heroTilt, setHeroTilt] = useState({ x: 0, y: 0 });
@@ -32,37 +46,32 @@ export default function HomePage() {
     const loadHomeData = async () => {
       setLoading(true);
 
+      // Cached load
       const cachedProducts = localStorage.getItem('mo_fashion_products');
-      if (cachedProducts) {
-        try { setProducts(JSON.parse(cachedProducts)); } catch (e) {}
-      }
+      if (cachedProducts) { try { setProducts(JSON.parse(cachedProducts)); } catch (e) {} }
 
       const cachedCategories = localStorage.getItem('mo_fashion_categories');
-      if (cachedCategories) {
-        try { setCategories(JSON.parse(cachedCategories)); } catch (e) {}
-      }
+      if (cachedCategories) { try { setCategories(JSON.parse(cachedCategories)); } catch (e) {} }
 
       const cachedSettings = localStorage.getItem('mo_fashion_settings');
-      if (cachedSettings) {
-        try { setSettings(JSON.parse(cachedSettings)); } catch (e) {}
-      }
+      if (cachedSettings) { try { setSettings(JSON.parse(cachedSettings)); } catch (e) {} }
 
+      const cachedReviews = localStorage.getItem('mo_fashion_reviews');
+      if (cachedReviews) { try { setReviews(JSON.parse(cachedReviews)); } catch (e) {} }
+
+      // Live fetch
       try {
-        const [cloudProds, cloudCats, cloudSet] = await Promise.all([
+        const [cloudProds, cloudCats, cloudSet, cloudRevs] = await Promise.all([
           getSupabaseProducts().catch(() => []),
           getSupabaseCategories().catch(() => []),
-          getSupabaseSettings().catch(() => null)
+          getSupabaseSettings().catch(() => null),
+          getSupabaseReviews().catch(() => [])
         ]);
 
-        if (Array.isArray(cloudProds) && cloudProds.length > 0) {
-          setProducts(cloudProds);
-        }
-        if (Array.isArray(cloudCats) && cloudCats.length > 0) {
-          setCategories(cloudCats);
-        }
-        if (cloudSet) {
-          setSettings(cloudSet);
-        }
+        if (Array.isArray(cloudProds) && cloudProds.length > 0) setProducts(cloudProds);
+        if (Array.isArray(cloudCats) && cloudCats.length > 0) setCategories(cloudCats);
+        if (cloudSet) setSettings((prev: any) => ({ ...prev, ...cloudSet }));
+        if (Array.isArray(cloudRevs) && cloudRevs.length > 0) setReviews(cloudRevs);
       } catch (err) {
         console.warn('Cloud fetch fallback engaged.');
       } finally {
@@ -76,11 +85,15 @@ export default function HomePage() {
     window.addEventListener('storage', handleStorageUpdate);
     window.addEventListener('productUpdated', handleStorageUpdate);
     window.addEventListener('categoryUpdated', handleStorageUpdate);
+    window.addEventListener('settingsUpdated', handleStorageUpdate);
+    window.addEventListener('reviewUpdated', handleStorageUpdate);
 
     return () => {
       window.removeEventListener('storage', handleStorageUpdate);
       window.removeEventListener('productUpdated', handleStorageUpdate);
       window.removeEventListener('categoryUpdated', handleStorageUpdate);
+      window.removeEventListener('settingsUpdated', handleStorageUpdate);
+      window.removeEventListener('reviewUpdated', handleStorageUpdate);
     };
   }, []);
 
@@ -140,6 +153,16 @@ export default function HomePage() {
     toast.success(`${product.name} added to cart! 🛒`);
   };
 
+  // 🚀 REAL-TIME AVERAGE STAR RATING CALCULATOR (NO DEFAULT 5.0!)
+  const getProductRatingStats = (productId: string) => {
+    const prodReviews = reviews.filter(r => String(r.productId || r.product_id) === String(productId));
+    if (prodReviews.length === 0) return { rating: '0.0', count: 0 };
+    
+    const sum = prodReviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0);
+    const avg = (sum / prodReviews.length).toFixed(1);
+    return { rating: avg, count: prodReviews.length };
+  };
+
   // Filter 100% REAL Products by active category
   const filteredProducts = products.filter(p => {
     if (activeCategory === 'All') return true;
@@ -153,13 +176,16 @@ export default function HomePage() {
         name: catName
       }));
 
+  const storeLogoImage = settings?.logoUrl || settings?.logo || settings?.storeLogo || '';
+  const storeBrandTitle = settings?.storeName || 'MO FASHION';
+
   return (
     <div className="min-h-screen text-white bg-[#111111] overflow-x-hidden pt-20 transition-all duration-300">
       <Helmet>
-        <title>{settings?.storeName || 'MO FASHION'} | Luxury Fashion Store</title>
+        <title>{storeBrandTitle} | Luxury Fashion Store</title>
       </Helmet>
 
-      {/* 🚀 1. PURE CSS 3D HERO BANNER SECTION */}
+      {/* 🚀 1. PURE CSS 3D HERO BANNER SECTION (ADMIN DYNAMIC TEXTS) */}
       <section 
         className="relative min-h-[85vh] flex items-center justify-center py-16 px-4 [perspective:1200px]"
         onMouseMove={handleHeroMouseMove}
@@ -175,23 +201,27 @@ export default function HomePage() {
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             
+            {/* Left Column: 3D Typography (Admin Dynamic Texts) */}
             <div className="space-y-6 text-center lg:text-left [transform:translateZ(30px)]">
+              
               <div className="inline-flex items-center space-x-2 bg-[#1A1A1A]/90 border border-[#D4AF37]/40 px-4 py-2 rounded-full backdrop-blur-md shadow-[0_0_20px_rgba(212,175,55,0.25)]">
-                <Sparkles className="w-4 h-4 text-[#D4AF37] animate-bounce" />
+                {storeLogoImage ? (
+                  <img src={storeLogoImage} alt={storeBrandTitle} className="w-4 h-4 object-cover rounded-full" />
+                ) : null}
                 <span className="text-xs font-bold tracking-[0.25em] text-[#D4AF37] uppercase">
-                  EXCLUSIVE LUXURY COLLECTION
+                  {settings?.heroBadge || 'EXCLUSIVE LUXURY COLLECTION'}
                 </span>
               </div>
 
-              <h1 className="text-4xl sm:text-6xl md:text-7xl font-serif font-bold leading-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-[#f3e5ab] to-[#D4AF37] drop-shadow-[0_10px_25px_rgba(212,175,55,0.35)]">
-                ELEVATE YOUR <br />
-                <span className="italic font-normal text-white">SIGNATURE</span> STYLE
+              <h1 className="text-4xl sm:text-6xl md:text-7xl font-serif font-bold leading-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-[#f3e5ab] to-[#D4AF37] drop-shadow-[0_10px_25px_rgba(212,175,55,0.35)] uppercase">
+                {settings?.heroTitle || 'ELEVATE YOUR SIGNATURE STYLE'}
               </h1>
 
               <p className="text-gray-400 text-sm sm:text-base max-w-xl mx-auto lg:mx-0 leading-relaxed font-light">
-                Discover handcrafted luxury apparel and accessories designed to redefine modern elegance. Premium quality tailored for perfection.
+                {settings?.heroDescription || 'Discover handcrafted luxury apparel and accessories designed to redefine modern elegance. Premium quality tailored for perfection.'}
               </p>
 
+              {/* 3D Action Buttons */}
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-4 [transform-style:preserve-3d]">
                 <button
                   onClick={() => navigate('/products')}
@@ -210,6 +240,7 @@ export default function HomePage() {
               </div>
             </div>
 
+            {/* Right Column: Pure CSS 3D Floating Card (Admin Dynamic Texts) */}
             <div className="relative flex justify-center items-center [transform-style:preserve-3d]">
               <div className="relative w-72 h-72 sm:w-96 sm:h-96 rounded-3xl bg-gradient-to-tr from-[#1A1A1A] via-[#111111] to-[#1A1A1A] border border-[#D4AF37]/40 shadow-[0_25px_60px_rgba(0,0,0,0.9),0_0_40px_rgba(212,175,55,0.2)] p-6 flex flex-col justify-between overflow-hidden group [transform:translateZ(40px)]">
                 
@@ -218,23 +249,23 @@ export default function HomePage() {
 
                 <div className="flex justify-between items-start z-10">
                   <span className="text-xs font-serif font-bold text-[#D4AF37] tracking-widest uppercase">
-                    EST. 2026
+                    {settings?.heroCardEst || 'EST. 2026'}
                   </span>
                   <Award size={28} className="text-[#D4AF37] animate-pulse" />
                 </div>
 
                 <div className="text-center z-10 py-6">
-                  <span className="font-serif text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#D4AF37] to-[#ffffff]">
-                    100% AUTHENTIC
+                  <span className="font-serif text-2xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#D4AF37] to-[#ffffff] uppercase">
+                    {settings?.heroCardTitle || '100% AUTHENTIC'}
                   </span>
                   <p className="text-xs text-gray-400 mt-2 uppercase tracking-widest font-semibold">
-                    PREMIUM FASHION GUARANTEED
+                    {settings?.heroCardSubtitle || 'PREMIUM FASHION GUARANTEED'}
                   </p>
                 </div>
 
                 <div className="flex justify-between items-center z-10 border-t border-gray-800/80 pt-4 text-xs text-gray-400">
                   <span className="flex items-center"><ShieldCheck size={14} className="mr-1 text-[#D4AF37]" /> Verified Store</span>
-                  <span className="text-[#D4AF37] font-bold">MO FASHION</span>
+                  <span className="text-[#D4AF37] font-bold uppercase">{storeBrandTitle}</span>
                 </div>
               </div>
             </div>
@@ -290,14 +321,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 🚀 3. FEATURED CATEGORIES SECTION (2-COLUMNS ON MOBILE) */}
+      {/* 🚀 3. FEATURED CATEGORIES SECTION (REAL IMAGES & CLICK FIX) */}
       {availableCategoryList.length > 0 && (
         <section className="py-16 px-4">
           <div className="container mx-auto max-w-7xl">
             <div className="flex justify-between items-end mb-8 border-b border-[#D4AF37]/20 pb-4">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-serif font-bold text-[#D4AF37] uppercase tracking-wider flex items-center">
-                  <TrendingUp className="mr-2 text-[#D4AF37]" size={24} /> LUXURY CATEGORIES
+                  {storeLogoImage ? (
+                    <img src={storeLogoImage} alt="" className="w-6 h-6 mr-2.5 object-cover rounded-full" />
+                  ) : (
+                    <TrendingUp className="mr-2 text-[#D4AF37]" size={24} />
+                  )}
+                  LUXURY CATEGORIES
                 </h2>
                 <p className="text-xs sm:text-sm text-gray-400 mt-1">Explore our exclusive real collections</p>
               </div>
@@ -310,7 +346,7 @@ export default function HomePage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
               {availableCategoryList.slice(0, 4).map((cat: any, index: number) => {
                 const catName = cat.name || cat;
-                const catImg = cat.image || cat.imageUrl || '';
+                const catImg = cat.image || cat.imageUrl || cat.photoUrl || '';
 
                 return (
                   <div
@@ -319,13 +355,15 @@ export default function HomePage() {
                     className="group relative h-40 sm:h-52 rounded-2xl bg-[#1A1A1A] border border-gray-800 hover:border-[#D4AF37] overflow-hidden cursor-pointer shadow-xl transition-all duration-500 hover:scale-105 active:scale-95 [perspective:1000px]"
                   >
                     {catImg ? (
-                      <img src={catImg} alt={catName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-60 group-hover:opacity-80" />
+                      <img src={catImg} alt={catName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-70 group-hover:opacity-90" />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-[#1A1A1A] via-[#111111] to-[#1A1A1A] flex items-center justify-center" />
+                      <div className="w-full h-full bg-gradient-to-br from-[#1A1A1A] via-[#111111] to-[#1A1A1A] flex items-center justify-center p-4 text-center">
+                        <span className="font-serif font-bold text-[#D4AF37] text-lg uppercase">{catName}</span>
+                      </div>
                     )}
 
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent p-4 flex flex-col justify-end">
-                      <span className="text-xs sm:text-base font-serif font-bold text-white group-hover:text-[#D4AF37] transition-colors">
+                      <span className="text-xs sm:text-base font-serif font-bold text-white group-hover:text-[#D4AF37] transition-colors uppercase">
                         {catName}
                       </span>
                       <span className="text-[10px] text-gray-400 flex items-center mt-1">
@@ -340,14 +378,17 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* 🚀 4. NEW ARRIVALS & PRODUCTS SECTION (2 COLUMNS ON MOBILE) */}
+      {/* 🚀 4. NEW ARRIVALS & PRODUCTS SECTION (NO SPARKLES, REAL-TIME STAR RATINGS, 3D SOLD BADGE) */}
       <section className="py-16 px-4 bg-[#111111]">
         <div className="container mx-auto max-w-7xl">
           
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 border-b border-[#D4AF37]/20 pb-4 gap-4">
             <div>
               <h2 className="text-2xl sm:text-4xl font-serif font-bold text-[#D4AF37] uppercase tracking-wider flex items-center">
-                <Sparkles className="mr-3 text-[#D4AF37]" size={28} /> NEW ARRIVALS
+                {storeLogoImage ? (
+                  <img src={storeLogoImage} alt="" className="w-8 h-8 mr-3 object-cover rounded-full" />
+                ) : null}
+                NEW ARRIVALS
               </h2>
               <p className="text-xs sm:text-sm text-gray-400 mt-1 flex items-center">
                 SHOWING {filteredProducts.length} REAL PRODUCTS AVAILABLE
@@ -412,7 +453,12 @@ export default function HomePage() {
                 else if (product.imageUrl) pImg = product.imageUrl;
                 else if (product.image) pImg = product.image;
 
-                const isOutOfStock = Number(product.stock) <= 0 || product.status === 'Out of Stock';
+                const stockCount = Number(product.stock) || 0;
+                const isOutOfStock = stockCount <= 0 || product.status === 'Out of Stock';
+                const isLowStock = stockCount > 0 && stockCount <= 3;
+
+                // 🚀 REAL-TIME RATING CALCULATOR
+                const ratingStats = getProductRatingStats(pId);
 
                 return (
                   <div
@@ -420,6 +466,7 @@ export default function HomePage() {
                     onClick={() => navigate(`/product/${pId}`)}
                     className="group relative bg-[#1A1A1A] border border-gray-800 hover:border-[#D4AF37]/60 rounded-2xl overflow-hidden cursor-pointer shadow-xl transition-all duration-500 hover:-translate-y-2 [perspective:1000px] [transform-style:preserve-3d]"
                   >
+                    {/* 3D Image Container */}
                     <div className="relative aspect-square w-full bg-[#111111] overflow-hidden">
                       {pImg ? (
                         <img 
@@ -433,22 +480,27 @@ export default function HomePage() {
                         </div>
                       )}
 
+                      {/* 3D Floating Badges */}
                       <div className="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-start z-10">
                         {discountPercent > 0 ? (
-                          <span className="bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold text-[10px] sm:text-xs px-2.5 py-1 rounded-lg shadow-md border border-red-400/30">
+                          <span className="bg-gradient-to-r from-red-600 via-orange-500 to-[#D4AF37] text-white font-bold text-[10px] sm:text-xs px-2.5 py-1 rounded-lg shadow-[0_4px_12px_rgba(220,38,38,0.4)] border border-red-400/40">
                             -{discountPercent}% OFF
                           </span>
                         ) : <span />}
 
-                        <span className={`font-bold text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full uppercase border backdrop-blur-md ${
+                        {/* 3D Metallic Stock Status Badge */}
+                        <span className={`font-bold text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full uppercase border backdrop-blur-md shadow-md ${
                           isOutOfStock 
-                            ? 'bg-red-500/10 text-red-400 border-red-500/30' 
-                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            ? 'bg-red-500/20 text-red-400 border-red-500/40 shadow-red-500/20' 
+                            : isLowStock
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-amber-500/20 animate-pulse'
+                            : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-emerald-500/20'
                         }`}>
-                          {isOutOfStock ? 'OUT OF STOCK' : 'IN STOCK'}
+                          {isOutOfStock ? 'OUT OF STOCK' : isLowStock ? 'LOW STOCK' : 'IN STOCK'}
                         </span>
                       </div>
 
+                      {/* Quick Hover Overlay Actions */}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center space-x-3 p-4">
                         <button
                           onClick={(e) => handleQuickAddToCart(e, product)}
@@ -471,22 +523,27 @@ export default function HomePage() {
                       </div>
                     </div>
 
+                    {/* Product Details Content */}
                     <div className="p-3.5 sm:p-5 space-y-2">
                       <div className="flex items-center justify-between text-[10px] sm:text-xs text-gray-400">
                         <span className="uppercase tracking-wider font-semibold text-[#D4AF37]">
                           {product.category || 'Luxury'}
                         </span>
-                        <span className="flex items-center text-yellow-400 font-bold">
+                        
+                        {/* 🚀 REAL-TIME STAR RATING (NO DEFAULT 5.0!) */}
+                        <span className="flex items-center text-yellow-400 font-bold bg-[#111111] px-2 py-0.5 rounded-full border border-gray-800">
                           <Star size={12} className="fill-yellow-400 mr-1" />
-                          5.0
+                          {ratingStats.rating > '0.0' ? `${ratingStats.rating} (${ratingStats.count})` : 'New'}
                         </span>
                       </div>
 
-                      <h3 className="font-serif font-bold text-xs sm:text-sm text-white line-clamp-1 group-hover:text-[#D4AF37] transition-colors">
+                      {/* 3D Product Title */}
+                      <h3 className="font-serif font-bold text-xs sm:text-sm text-white line-clamp-1 group-hover:text-[#D4AF37] transition-colors uppercase tracking-wide">
                         {pName}
                       </h3>
 
-                      <div className="flex items-baseline justify-between pt-1">
+                      {/* Pricing & 3D Sold Badge */}
+                      <div className="flex items-center justify-between pt-1">
                         <div className="flex items-baseline space-x-1.5">
                           <span className="font-bold text-sm sm:text-base text-[#D4AF37]">
                             {settings?.currency || '৳'} {finalPrice.toFixed(2)}
@@ -498,8 +555,9 @@ export default function HomePage() {
                           )}
                         </div>
 
+                        {/* 🚀 3D METALLIC GOLD "SOLD" BADGE */}
                         {Number(product.sold) > 0 && (
-                          <span className="text-[9px] sm:text-[10px] text-gray-500 font-medium">
+                          <span className="bg-gradient-to-r from-[#D4AF37]/20 to-[#aa8c2c]/20 text-[#D4AF37] border border-[#D4AF37]/40 px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-bold shadow-md shadow-[#D4AF37]/10">
                             {product.sold} Sold
                           </span>
                         )}
@@ -514,7 +572,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 🚀 5. SPECIAL OFFER BANNER */}
+      {/* 🚀 5. SPECIAL OFFER BANNER (ADMIN DYNAMIC TEXTS) */}
       <section className="py-16 px-4">
         <div className="container mx-auto max-w-7xl">
           <div className="relative rounded-3xl bg-gradient-to-r from-[#1A1A1A] via-[#111111] to-[#1A1A1A] border border-[#D4AF37]/40 p-8 sm:p-12 overflow-hidden shadow-2xl [perspective:1000px]">
@@ -522,14 +580,13 @@ export default function HomePage() {
 
             <div className="relative z-10 max-w-2xl space-y-4">
               <span className="bg-[#D4AF37]/20 text-[#D4AF37] text-xs font-bold px-3.5 py-1.5 rounded-full border border-[#D4AF37]/40 inline-block uppercase tracking-widest">
-                LIMITED TIME OFFER
+                {settings?.offerBadge || 'LIMITED TIME OFFER'}
               </span>
-              <h2 className="text-3xl sm:text-5xl font-serif font-bold text-white leading-tight">
-                SPECIAL LUXURY DISCOUNT <br />
-                <span className="text-[#D4AF37]">UP TO 30% OFF</span>
+              <h2 className="text-3xl sm:text-5xl font-serif font-bold text-white leading-tight uppercase">
+                {settings?.offerTitle || 'SPECIAL LUXURY DISCOUNT UP TO 30% OFF'}
               </h2>
               <p className="text-xs sm:text-sm text-gray-400">
-                Upgrade your wardrobe today with our exclusive premium collection. Fast nationwide delivery available.
+                {settings?.offerDescription || 'Upgrade your wardrobe today with our exclusive premium collection. Fast nationwide delivery available.'}
               </p>
               <button
                 onClick={() => navigate('/products')}

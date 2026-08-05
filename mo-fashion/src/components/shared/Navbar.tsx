@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   ShoppingBag, Search, Menu, X, Home, Grid, Info, User, 
-  Sparkles, ShieldCheck 
+  ShieldCheck 
 } from 'lucide-react';
 import { useCartStore } from '../../store/useCartStore';
+import { getSupabaseSettings } from '../../lib/supabase';
 
 export default function Navbar() {
   const location = useLocation();
@@ -15,16 +16,45 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [logoTilt, setLogoTilt] = useState({ x: 0, y: 0 });
+  const [settings, setSettings] = useState<any>({
+    storeName: 'MO FASHION',
+    tagline: 'LUXURY COLLECTION',
+    logoUrl: ''
+  });
 
   // 🚀 মোট কার্ট আইটেম সংখ্যা হিসাব
   const totalCartCount = items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
 
   useEffect(() => {
+    const loadSettings = async () => {
+      const cached = localStorage.getItem('mo_fashion_settings');
+      if (cached) {
+        try { setSettings(JSON.parse(cached)); } catch (e) {}
+      }
+
+      try {
+        const cloudSet = await getSupabaseSettings();
+        if (cloudSet) setSettings(cloudSet);
+      } catch (e) {}
+    };
+
+    loadSettings();
+
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
+
+    const handleSettingsUpdate = () => loadSettings();
+
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('storage', handleSettingsUpdate);
+    window.addEventListener('settingsUpdated', handleSettingsUpdate);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('storage', handleSettingsUpdate);
+      window.removeEventListener('settingsUpdated', handleSettingsUpdate);
+    };
   }, []);
 
   // 🚀 Pure CSS 3D Perspective Tilt Engine for Logo
@@ -62,6 +92,10 @@ export default function Navbar() {
     { name: 'Profile', path: '/admin', icon: User },
   ];
 
+  const storeLogoImage = settings?.logoUrl || settings?.logo || settings?.storeLogo || '';
+  const storeBrandTitle = settings?.storeName || 'MO FASHION';
+  const storeTaglineText = settings?.tagline || settings?.storeTagline || 'LUXURY COLLECTION';
+
   return (
     <>
       {/* 🚀 PURE CSS 3D LUXURY TOP NAVBAR */}
@@ -81,7 +115,7 @@ export default function Navbar() {
             {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
 
-          {/* 🚀 PURE CSS 3D PERSPECTIVE LOGO */}
+          {/* 🚀 PURE CSS 3D PERSPECTIVE LOGO (AUTHENTIC LOGO IMAGE OR BRAND EMBLEM) */}
           <div 
             className="[perspective:1000px] cursor-pointer group py-1"
             onMouseMove={handleLogoMouseMove}
@@ -94,20 +128,26 @@ export default function Navbar() {
                 transform: `rotateX(${logoTilt.x}deg) rotateY(${logoTilt.y}deg) translateZ(12px)`
               }}
             >
-              {/* 3D Pure CSS Metallic Gold Emblem */}
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-gradient-to-br from-[#D4AF37] via-[#fff5c0] to-[#aa8c2c] p-[1.5px] shadow-[0_10px_25px_rgba(212,175,55,0.35)] group-hover:shadow-[0_15px_35px_rgba(212,175,55,0.65)] transition-all duration-300 [transform-style:preserve-3d]">
-                <div className="w-full h-full bg-[#111111] rounded-2xl flex items-center justify-center border border-[#D4AF37]/50 backdrop-blur-md [transform:translateZ(10px)]">
-                  <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-[#D4AF37] animate-pulse" />
+              {/* 3D Pure CSS Metallic Gold Logo Container */}
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-gradient-to-br from-[#D4AF37] via-[#fff5c0] to-[#aa8c2c] p-[1.5px] shadow-[0_10px_25px_rgba(212,175,55,0.35)] group-hover:shadow-[0_15px_35px_rgba(212,175,55,0.65)] transition-all duration-300 [transform-style:preserve-3d] shrink-0 overflow-hidden">
+                <div className="w-full h-full bg-[#111111] rounded-2xl flex items-center justify-center border border-[#D4AF37]/50 backdrop-blur-md overflow-hidden [transform:translateZ(10px)]">
+                  {storeLogoImage ? (
+                    <img src={storeLogoImage} alt={storeBrandTitle} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="font-serif font-bold text-[#D4AF37] text-sm md:text-base tracking-widest">
+                      {storeBrandTitle.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* 3D Brand Title with Specular Depth */}
+              {/* 3D Brand Title & Dynamic Tagline from Admin Settings */}
               <div className="flex flex-col [transform:translateZ(15px)]">
-                <span className="font-serif text-xl sm:text-2xl md:text-3xl font-bold tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-[#D4AF37] via-[#ffffff] to-[#aa8c2c] drop-shadow-[0_4px_12px_rgba(212,175,55,0.4)]">
-                  MO FASHION
+                <span className="font-serif text-xl sm:text-2xl md:text-3xl font-bold tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-[#D4AF37] via-[#ffffff] to-[#aa8c2c] drop-shadow-[0_4px_12px_rgba(212,175,55,0.4)] uppercase">
+                  {storeBrandTitle}
                 </span>
-                <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.35em] text-gray-400 font-sans font-semibold -mt-1 flex items-center">
-                  Luxury Collection <ShieldCheck size={10} className="ml-1 text-[#D4AF37]" />
+                <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.3em] text-gray-400 font-sans font-semibold -mt-1 flex items-center">
+                  {storeTaglineText} <ShieldCheck size={10} className="ml-1 text-[#D4AF37]" />
                 </span>
               </div>
             </div>
